@@ -1,0 +1,30 @@
+import React from 'react';
+import Sidebar from '../components/Sidebar';
+import StatisticsCards from '../components/StatisticsCards';
+import CourseTable from '../components/CourseTable';
+
+const Dashboard: React.FC = () => {
+  return (
+    <div className="flex h-[calc(100vh-64px)]">
+      {/* Sidebar */}
+      <Sidebar />
+      
+      {/* Main Content */}
+      <div className="flex-1 overflow-auto custom-scrollbar">
+        <div className="p-6">
+          {/* Statistics Cards */}
+          <div className="mb-8">
+            <StatisticsCards />
+          </div>
+          
+          {/* Course Table */}
+          <div>
+            <CourseTable />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
