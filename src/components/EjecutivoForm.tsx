@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
 
 export interface EjecutivoFormData {
+  _id?: string;
+  code?: number;
   nombres: string;
   apellidos: string;
-  rut: string;
-  direccion: string;
-  telefono1: string;
-  telefono2: string;
-  email: string;
+  rut?: string;
+  direccion?: string;
+  telefono_1?: string;
+  telefono_2?: string;
+  email?: string;
   status: string;
 }
 
 interface Props {
+  initial?: EjecutivoFormData;
   onClose: () => void;
-  onSave?: (data: EjecutivoFormData) => Promise<void> | void;
+  onSave: (data: EjecutivoFormData) => Promise<void>;
 }
 
 const empty: EjecutivoFormData = {
@@ -21,14 +24,14 @@ const empty: EjecutivoFormData = {
   apellidos: '',
   rut: '',
   direccion: '',
-  telefono1: '',
-  telefono2: '',
+  telefono_1: '',
+  telefono_2: '',
   email: '',
   status: 'Activo',
 };
 
-const EjecutivoForm: React.FC<Props> = ({ onClose, onSave }) => {
-  const [form, setForm] = useState<EjecutivoFormData>(empty);
+const EjecutivoForm: React.FC<Props> = ({ initial, onClose, onSave }) => {
+  const [form, setForm] = useState<EjecutivoFormData>(initial ?? empty);
   const [saving, setSaving] = useState(false);
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -38,15 +41,9 @@ const EjecutivoForm: React.FC<Props> = ({ onClose, onSave }) => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onSave) {
-      console.log('EjecutivoForm submit', form);
-      onClose();
-      return;
-    }
     setSaving(true);
     try {
       await onSave(form);
-      onClose();
     } finally {
       setSaving(false);
     }
@@ -55,6 +52,16 @@ const EjecutivoForm: React.FC<Props> = ({ onClose, onSave }) => {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {form.code !== undefined && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Code</label>
+            <input
+              value={form.code}
+              readOnly
+              className="mt-1 w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"
+            />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700">Nombres</label>
           <input
@@ -96,8 +103,8 @@ const EjecutivoForm: React.FC<Props> = ({ onClose, onSave }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700">Teléfono 1</label>
           <input
-            name="telefono1"
-            value={form.telefono1}
+            name="telefono_1"
+            value={form.telefono_1 || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />
@@ -105,8 +112,8 @@ const EjecutivoForm: React.FC<Props> = ({ onClose, onSave }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700">Teléfono 2</label>
           <input
-            name="telefono2"
-            value={form.telefono2}
+            name="telefono_2"
+            value={form.telefono_2 || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />

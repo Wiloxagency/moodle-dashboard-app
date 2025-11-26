@@ -1,37 +1,39 @@
 import React, { useState } from 'react';
 
 export interface EmpresaFormData {
+  _id?: string;
+  code?: number;
   nombre: string;
-  holding: string;
-  rut: string;
-  nombreResponsable: string;
-  emailResponsable: string;
-  telefono1: string;
-  telefono2: string;
-  emailEmpresa: string;
+  holding?: string;
+  rut?: string;
+  nombre_responsable?: string;
+  email_responsable?: string;
+  telefono_1?: string;
+  telefono_2?: string;
+  email_empresa?: string;
   status: string;
 }
 
 interface Props {
+  initial?: EmpresaFormData;
   onClose: () => void;
-  // Dejamos preparado por si luego se conecta a API
-  onSave?: (data: EmpresaFormData) => Promise<void> | void;
+  onSave: (data: EmpresaFormData) => Promise<void>;
 }
 
 const empty: EmpresaFormData = {
   nombre: '',
   holding: '',
   rut: '',
-  nombreResponsable: '',
-  emailResponsable: '',
-  telefono1: '',
-  telefono2: '',
-  emailEmpresa: '',
+  nombre_responsable: '',
+  email_responsable: '',
+  telefono_1: '',
+  telefono_2: '',
+  email_empresa: '',
   status: 'Activo',
 };
 
-const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
-  const [form, setForm] = useState<EmpresaFormData>(empty);
+const EmpresaForm: React.FC<Props> = ({ initial, onClose, onSave }) => {
+  const [form, setForm] = useState<EmpresaFormData>(initial ?? empty);
   const [saving, setSaving] = useState(false);
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -41,16 +43,9 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onSave) {
-      // Por ahora solo mostramos en consola para pruebas
-      console.log('EmpresaForm submit', form);
-      onClose();
-      return;
-    }
     setSaving(true);
     try {
       await onSave(form);
-      onClose();
     } finally {
       setSaving(false);
     }
@@ -59,6 +54,16 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {form.code !== undefined && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Code</label>
+            <input
+              value={form.code}
+              readOnly
+              className="mt-1 w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"
+            />
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-gray-700">Nombre</label>
           <input
@@ -90,8 +95,8 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700">Nombre del Responsable</label>
           <input
-            name="nombreResponsable"
-            value={form.nombreResponsable}
+            name="nombre_responsable"
+            value={form.nombre_responsable || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />
@@ -100,8 +105,8 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
           <label className="block text-sm font-medium text-gray-700">Email del Responsable</label>
           <input
             type="email"
-            name="emailResponsable"
-            value={form.emailResponsable}
+            name="email_responsable"
+            value={form.email_responsable || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />
@@ -109,8 +114,8 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700">Teléfono 1</label>
           <input
-            name="telefono1"
-            value={form.telefono1}
+            name="telefono_1"
+            value={form.telefono_1 || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />
@@ -118,8 +123,8 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
         <div>
           <label className="block text-sm font-medium text-gray-700">Teléfono 2</label>
           <input
-            name="telefono2"
-            value={form.telefono2}
+            name="telefono_2"
+            value={form.telefono_2 || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />
@@ -128,8 +133,8 @@ const EmpresaForm: React.FC<Props> = ({ onClose, onSave }) => {
           <label className="block text-sm font-medium text-gray-700">Email de la Empresa</label>
           <input
             type="email"
-            name="emailEmpresa"
-            value={form.emailEmpresa}
+            name="email_empresa"
+            value={form.email_empresa || ''}
             onChange={change}
             className="mt-1 w-full border rounded px-3 py-2"
           />

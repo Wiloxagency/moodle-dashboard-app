@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FileText, Sheet, LogOut, User, Home, Users } from 'lucide-react';
+import { FileText, Sheet, LogOut, User, Home, Users, Building2, FileText as FileIcon, Waypoints, UserCircle2 } from 'lucide-react';
 import logo from '../assets/logo.png';
 
 const Header: React.FC = () => {
@@ -22,7 +22,7 @@ const Header: React.FC = () => {
           />
           
           {/* Navigation Links */}
-          <nav className="flex space-x-6">
+          <nav className="flex space-x-4">
             <Link 
               to="/" 
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
@@ -44,6 +44,50 @@ const Header: React.FC = () => {
             >
               <Users className="w-4 h-4" />
               <span>Inscripciones</span>
+            </Link>
+            <Link 
+              to="/empresas" 
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                isActive('/empresas') 
+                  ? 'bg-blue-50 text-blue-700 font-medium' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Empresas</span>
+            </Link>
+            <Link 
+              to="/sence" 
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                isActive('/sence') 
+                  ? 'bg-blue-50 text-blue-700 font-medium' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <FileIcon className="w-4 h-4" />
+              <span>Sence</span>
+            </Link>
+            <Link 
+              to="/modalidad" 
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                isActive('/modalidad') 
+                  ? 'bg-blue-50 text-blue-700 font-medium' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <Waypoints className="w-4 h-4" />
+              <span>Modalidad</span>
+            </Link>
+            <Link 
+              to="/ejecutivos" 
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                isActive('/ejecutivos') 
+                  ? 'bg-blue-50 text-blue-700 font-medium' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <UserCircle2 className="w-4 h-4" />
+              <span>Ejecutivos</span>
             </Link>
           </nav>
         </div>

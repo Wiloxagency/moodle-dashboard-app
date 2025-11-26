@@ -1,28 +1,31 @@
 import React, { useState } from 'react';
 
 export interface ModalidadFormData {
+  _id?: string;
+  code?: number;
   sincronico: boolean;
   asincronico: boolean;
-  sincronicoOnline: boolean;
-  sincronicoPresencialMoodle: boolean;
-  sincronicoPresencialNoMoodle: boolean;
+  sincronico_online: boolean;
+  sincronico_presencial_moodle: boolean;
+  sincronico_presencial_no_moodle: boolean;
 }
 
 interface Props {
+  initial?: ModalidadFormData;
   onClose: () => void;
-  onSave?: (data: ModalidadFormData) => Promise<void> | void;
+  onSave: (data: ModalidadFormData) => Promise<void>;
 }
 
 const empty: ModalidadFormData = {
   sincronico: false,
   asincronico: false,
-  sincronicoOnline: false,
-  sincronicoPresencialMoodle: false,
-  sincronicoPresencialNoMoodle: false,
+  sincronico_online: false,
+  sincronico_presencial_moodle: false,
+  sincronico_presencial_no_moodle: false,
 };
 
-const ModalidadForm: React.FC<Props> = ({ onClose, onSave }) => {
-  const [form, setForm] = useState<ModalidadFormData>(empty);
+const ModalidadForm: React.FC<Props> = ({ initial, onClose, onSave }) => {
+  const [form, setForm] = useState<ModalidadFormData>(initial ?? empty);
   const [saving, setSaving] = useState(false);
 
   const change = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,15 +35,9 @@ const ModalidadForm: React.FC<Props> = ({ onClose, onSave }) => {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onSave) {
-      console.log('ModalidadForm submit', form);
-      onClose();
-      return;
-    }
     setSaving(true);
     try {
       await onSave(form);
-      onClose();
     } finally {
       setSaving(false);
     }
@@ -49,6 +46,16 @@ const ModalidadForm: React.FC<Props> = ({ onClose, onSave }) => {
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="space-y-2">
+        {form.code !== undefined && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Code</label>
+            <input
+              value={form.code}
+              readOnly
+              className="mt-1 w-full border rounded px-3 py-2 bg-gray-100 text-gray-700"
+            />
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
@@ -72,8 +79,8 @@ const ModalidadForm: React.FC<Props> = ({ onClose, onSave }) => {
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
-            name="sincronicoOnline"
-            checked={form.sincronicoOnline}
+            name="sincronico_online"
+            checked={form.sincronico_online}
             onChange={change}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
@@ -82,8 +89,8 @@ const ModalidadForm: React.FC<Props> = ({ onClose, onSave }) => {
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
-            name="sincronicoPresencialMoodle"
-            checked={form.sincronicoPresencialMoodle}
+            name="sincronico_presencial_moodle"
+            checked={form.sincronico_presencial_moodle}
             onChange={change}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
@@ -92,8 +99,8 @@ const ModalidadForm: React.FC<Props> = ({ onClose, onSave }) => {
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
-            name="sincronicoPresencialNoMoodle"
-            checked={form.sincronicoPresencialNoMoodle}
+            name="sincronico_presencial_no_moodle"
+            checked={form.sincronico_presencial_no_moodle}
             onChange={change}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
