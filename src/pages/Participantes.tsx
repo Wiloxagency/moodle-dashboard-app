@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import config from '../config/environment';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, ArrowUpDown, Loader2, Plus } from 'lucide-react';
 import { participantesApi, type Participante } from '../services/participantes';
@@ -27,6 +28,12 @@ const ParticipantesPage: React.FC = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Participante | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportData, setReportData] = useState<{ passed: any[]; failed: any[] } | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -70,7 +77,48 @@ const ParticipantesPage: React.FC = () => {
     setShowForm(true);
   };
 
-  const requestSort = (key: SortKey) => {
+  
+
+  const handleImportFromMoodle = async () => {
+    if (!numeroInscripcion) return;
+    try {
+      setImporting(true);
+      setNotice(null);
+      const r = await participantesApi.importFromMoodle(numeroInscripcion);
+      await load();
+      const msg = r.message || `Importación completa: insertados ${r.inserted}, actualizados ${r.updated}, omitidos ${r.skipped}. Total en la inscripción: ${r.total}`;
+      setNotice(msg);
+    } catch (e:any) {
+      setNotice(e?.message || "Error importando desde Moodle");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+
+  const openGradesReport = async () => {
+    if (!numeroInscripcion) return;
+    setReportOpen(true);
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(numeroInscripcion)}/grades`;
+      const res = await fetch(url);
+      // Nota: normalmente usamos apiBaseUrl, pero aquí el backend está en el mismo host en dev. Si fuera necesario, podemos cambiar a config.apiBaseUrl.
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Error obteniendo reporte');
+      }
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Error obteniendo reporte');
+      setReportData(json.data || { passed: [], failed: [] });
+    } catch (e:any) {
+      setReportError(e?.message || 'Error obteniendo reporte');
+    } finally {
+      setReportLoading(false);
+    }
+  };
+const requestSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -146,6 +194,66 @@ const ParticipantesPage: React.FC = () => {
     <div className="flex items-center justify-center py-12">
       <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
       <span className="ml-2 text-gray-600">Cargando participantes...</span>
+    
+      {reportOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Reporte de notas</h3>
+              <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
+            </div>
+            {reportLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <span className="ml-2 text-gray-600">Generando reporte...</span>
+              </div>
+            ) : reportError ? (
+              <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded">{reportError}</div>
+            ) : reportData ? (
+              <div className="space-y-6">
+                <div className="text-sm text-gray-600">A continuación se muestran los resultados para los participantes de la inscripción {numeroInscripcion}.</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left">IdCurso</th>
+                        <th className="px-3 py-2 text-left">RutAlumno</th>
+                        <th className="px-3 py-2 text-right">% Avance</th>
+                        <th className="px-3 py-2 text-right">% Asistencia</th>
+                        <th className="px-3 py-2 text-right">Nota Final</th>
+                        <th className="px-3 py-2 text-left">Estado</th>
+                        <th className="px-3 py-2 text-left">Observación</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {reportData.passed.map((r, i) => (
+                        <tr key={`${r.RutAlumno}-${i}`}>
+                          <td className="px-3 py-2">{r.IdCurso}</td>
+                          <td className="px-3 py-2">{r.RutAlumno}</td>
+                          <td className="px-3 py-2 text-right">{r.PorcentajeAvance}%</td>
+                          <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno}%</td>
+                          <td className="px-3 py-2 text-right">{r.NotaFinal}</td>
+                          <td className="px-3 py-2">{r.EstadoCurso === '1' ? 'Aprobado' : (r.EstadoCurso === '2' ? 'Reprobado' : 'Sin nota')}</td>
+                          <td className="px-3 py-2">{r.Observacion}</td>
+                        </tr>
+                      ))}
+                      {reportData.passed.length === 0 && (
+                        <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {reportData.failed && reportData.failed.length > 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded">
+                    No se pudieron obtener notas para {reportData.failed.length} participante(s).
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 
@@ -155,6 +263,9 @@ const ParticipantesPage: React.FC = () => {
         <div className="p-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="p-6 border-b border-gray-200">
+              {notice && (
+                <div className="mb-3 p-3 rounded bg-yellow-50 text-yellow-800 border border-yellow-200 text-sm">{notice}</div>
+              )}
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold text-gray-900">Participantes</h2>
@@ -182,6 +293,16 @@ const ParticipantesPage: React.FC = () => {
                   >
                     <Plus className="w-4 h-4" />
                     Nuevo Participante
+                  </button>
+                  <button 
+                    onClick={openGradesReport}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                  >
+                    Ver reporte de notas
+                  </button>
+                  <button onClick={handleImportFromMoodle} disabled={importing} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50">
+                    {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Cargar desde Moodle
                   </button>
                   <Link 
                     to="/inscripciones" 
@@ -285,6 +406,66 @@ const ParticipantesPage: React.FC = () => {
           </div>
         </div>
       )}
+    
+      {reportOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Reporte de notas</h3>
+              <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
+            </div>
+            {reportLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+                <span className="ml-2 text-gray-600">Generando reporte...</span>
+              </div>
+            ) : reportError ? (
+              <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded">{reportError}</div>
+            ) : reportData ? (
+              <div className="space-y-6">
+                <div className="text-sm text-gray-600">A continuación se muestran los resultados para los participantes de la inscripción {numeroInscripcion}.</div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left">IdCurso</th>
+                        <th className="px-3 py-2 text-left">RutAlumno</th>
+                        <th className="px-3 py-2 text-right">% Avance</th>
+                        <th className="px-3 py-2 text-right">% Asistencia</th>
+                        <th className="px-3 py-2 text-right">Nota Final</th>
+                        <th className="px-3 py-2 text-left">Estado</th>
+                        <th className="px-3 py-2 text-left">Observación</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {reportData.passed.map((r, i) => (
+                        <tr key={`${r.RutAlumno}-${i}`}>
+                          <td className="px-3 py-2">{r.IdCurso}</td>
+                          <td className="px-3 py-2">{r.RutAlumno}</td>
+                          <td className="px-3 py-2 text-right">{r.PorcentajeAvance}%</td>
+                          <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno}%</td>
+                          <td className="px-3 py-2 text-right">{r.NotaFinal}</td>
+                          <td className="px-3 py-2">{r.EstadoCurso === '1' ? 'Aprobado' : (r.EstadoCurso === '2' ? 'Reprobado' : 'Sin nota')}</td>
+                          <td className="px-3 py-2">{r.Observacion}</td>
+                        </tr>
+                      ))}
+                      {reportData.passed.length === 0 && (
+                        <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {reportData.failed && reportData.failed.length > 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded">
+                    No se pudieron obtener notas para {reportData.failed.length} participante(s).
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

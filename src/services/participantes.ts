@@ -70,6 +70,20 @@ export const participantesApi = {
     const json: ApiResponse<void> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
   }
+ ,
+  async importFromMoodle(numeroInscripcion: string): Promise<{ inserted: number; updated: number; skipped: number; total: number; message?: string }> {
+    const res = await fetch(`${BASE}/import/moodle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numeroInscripcion })
+    });
+    const json: ApiResponse<{ inserted: number; updated: number; skipped: number; total: number; message?: string }> = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message || 'Error importando desde Moodle');
+    }
+    return json.data!;
+  }
+
 };
 
 export default participantesApi;
