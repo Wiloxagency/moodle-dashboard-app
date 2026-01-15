@@ -13,11 +13,13 @@ interface Props {
 type SortKey =
   | 'secuencial'
   | 'numeroInscripcion'
+  | 'correlativo'
+  | 'codigoCurso'
   | 'codigoSence'
   | 'ordenCompra'
   | 'idSence'
   | 'idMoodle'
-  | 'cliente'
+  | 'empresa'
   | 'nombreCurso'
   | 'modalidad'
   | 'inicio'
@@ -48,10 +50,10 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
   };
 
   const getModalidadColor = (modalidad: string) => {
-    switch (modalidad) {
-      case 'E-Learning':
+    switch (modalidad && modalidad.toLowerCase()) {
+      case 'e-learning':
         return 'bg-blue-100 text-blue-800';
-      case 'Sincrónico':
+      case 'sincrónico':
         return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -71,10 +73,10 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
     }
   };
 
-  const formatCurrency = (value: number) =>
-    value.toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+  const formatCurrency = (value: number | undefined) =>
+    (value ?? 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 
-  const formatDate = (value: string) => new Date(value).toLocaleDateString('es-CL');
+  const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('es-CL') : '-';
 
   // Filtering
   const filtered = useMemo(() => {
@@ -82,8 +84,10 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
     const q = filter.toLowerCase();
     return data.filter(r =>
       (r.numeroInscripcion || '').toLowerCase().includes(q) ||
+      (String(r.correlativo || '')).toLowerCase().includes(q) ||
+      (r.codigoCurso || '').toLowerCase().includes(q) ||
       (r.codigoSence || '').toLowerCase().includes(q) ||
-      (r.cliente || '').toLowerCase().includes(q) ||
+      (r.empresa || '').toLowerCase().includes(q) ||
       (r.nombreCurso || '').toLowerCase().includes(q) ||
       (r.ejecutivo || '').toLowerCase().includes(q) ||
       (r.idMoodle || '').toLowerCase().includes(q) ||
@@ -96,17 +100,19 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
     const arr = [...filtered];
     const dir = sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
-      const diffA = a.valorFinal - a.valorInicial;
-      const diffB = b.valorFinal - b.valorInicial;
+      const vIa = (a.valorInicial ?? 0); const vFa = (a.valorFinal ?? 0); const diffA = vFa - vIa;
+      const vIb = (b.valorInicial ?? 0); const vFb = (b.valorFinal ?? 0); const diffB = vFb - vIb;
       const get = (key: SortKey) => {
         switch (key) {
-          case 'secuencial': return 0; // will be handled by index
+          case 'secuencial': return 0; // handled by index
           case 'diferencia': return diffA;
           case 'numAlumnosInscritos': return (participantCounts[a.numeroInscripcion] ?? a.numAlumnosInscritos);
-          case 'valorInicial': return a.valorInicial;
-          case 'valorFinal': return a.valorFinal;
+          case 'valorInicial': return a.valorInicial ?? 0;
+          case 'valorFinal': return a.valorFinal ?? 0;
           case 'inicio': return new Date(a.inicio).getTime() || 0;
-          case 'termino': return new Date(a.termino).getTime() || 0;
+          case 'termino': return a.termino ? new Date(a.termino).getTime() || 0 : 0;
+          case 'numeroInscripcion': return parseInt(a.numeroInscripcion as any, 10) || 0;
+          case 'correlativo': return a.correlativo || 0;
           default: return (a as any)[key]?.toString()?.toLowerCase?.() ?? '';
         }
       };
@@ -115,10 +121,12 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
           case 'secuencial': return 0;
           case 'diferencia': return diffB;
           case 'numAlumnosInscritos': return (participantCounts[b.numeroInscripcion] ?? b.numAlumnosInscritos);
-          case 'valorInicial': return b.valorInicial;
-          case 'valorFinal': return b.valorFinal;
+          case 'valorInicial': return b.valorInicial ?? 0;
+          case 'valorFinal': return b.valorFinal ?? 0;
           case 'inicio': return new Date(b.inicio).getTime() || 0;
-          case 'termino': return new Date(b.termino).getTime() || 0;
+          case 'termino': return b.termino ? new Date(b.termino).getTime() || 0 : 0;
+          case 'numeroInscripcion': return parseInt(b.numeroInscripcion as any, 10) || 0;
+          case 'correlativo': return b.correlativo || 0;
           default: return (b as any)[key]?.toString()?.toLowerCase?.() ?? '';
         }
       };
@@ -170,53 +178,57 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
             <thead className="bg-gray-50 sticky top-0 z-10">
             <tr>
               <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-<th className="px-4 py-3 text-left min-w-[145px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('numeroInscripcion')}>N° Inscripción <SortIcon col="numeroInscripcion" /></th>
+              <th className="px-4 py-3 text-left min-w-[145px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('numeroInscripcion')}>N° Inscripción <SortIcon col="numeroInscripcion" /></th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('correlativo')}>N° Correlativo <SortIcon col="correlativo" /></th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('codigoSence')}>Código Sence <SortIcon col="codigoSence" /></th>
-<th className="px-4 py-3 text-left min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('ordenCompra')}>Orden de Compra <SortIcon col="ordenCompra" /></th>
-<th className="px-4 py-3 text-left min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('idSence')}>ID Sence <SortIcon col="idSence" /></th>
-<th className="px-4 py-3 text-left min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('idMoodle')}>ID Moodle <SortIcon col="idMoodle" /></th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('cliente')}>Cliente <SortIcon col="cliente" /></th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombreCurso')}>Nombre Curso <SortIcon col="nombreCurso" /></th>
-<th className="px-4 py-3 text-left min-w-[140px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('modalidad')}>Modalidad <SortIcon col="modalidad" /></th>
+              <th className="px-4 py-3 text-left min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('ordenCompra')}>Orden de Compra <SortIcon col="ordenCompra" /></th>
+              <th className="px-4 py-3 text-left min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('idSence')}>ID Sence <SortIcon col="idSence" /></th>
+              <th className="px-4 py-3 text-left min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('idMoodle')}>ID Moodle <SortIcon col="idMoodle" /></th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('empresa')}>Empresa <SortIcon col="empresa" /></th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('codigoCurso')}>Código del Curso <SortIcon col="codigoCurso" /></th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombreCurso')}>Nombre del Curso <SortIcon col="nombreCurso" /></th>
+              <th className="px-4 py-3 text-left min-w-[140px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('modalidad')}>Modalidad <SortIcon col="modalidad" /></th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('inicio')}>Inicio <SortIcon col="inicio" /></th>
-<th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('termino')}>Termino <SortIcon col="termino" /></th>
-<th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('ejecutivo')}>Ejecutivo <SortIcon col="ejecutivo" /></th>
-<th className="px-4 py-3 text-right min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('numAlumnosInscritos')}>Num Alumnos Inscritos <SortIcon col="numAlumnosInscritos" /></th>
-<th className="px-4 py-3 text-right min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('valorInicial')}>Valor INICIAL <SortIcon col="valorInicial" /></th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('valorFinal')}>Valor FINAL <SortIcon col="valorFinal" /></th>
-<th className="px-4 py-3 text-right min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('diferencia')}>Diferencia <SortIcon col="diferencia" /></th>
-<th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('statusAlumnos')}>Status de Alumnos <SortIcon col="statusAlumnos" /></th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comentarios</th>
+              <th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('termino')}>Fecha Final <SortIcon col="termino" /></th>
+              <th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('ejecutivo')}>Ejecutivo <SortIcon col="ejecutivo" /></th>
+              <th className="px-4 py-3 text-right min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('numAlumnosInscritos')}>Num Alumnos Inscritos <SortIcon col="numAlumnosInscritos" /></th>
+              <th className="px-4 py-3 text-right min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('valorInicial')}>Valor Inicial <SortIcon col="valorInicial" /></th>
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('valorFinal')}>Valor Final <SortIcon col="valorFinal" /></th>
+              <th className="px-4 py-3 text-right min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('diferencia')}>Diferencia <SortIcon col="diferencia" /></th>
+              <th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('statusAlumnos')}>Status de Alumnos <SortIcon col="statusAlumnos" /></th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comentario</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {pageRows.map((r, idx) => {
-              const diferencia = r.valorFinal - r.valorInicial;
+              const diferencia = (r.valorFinal ?? 0) - (r.valorInicial ?? 0);
               const diffColor = diferencia === 0 ? 'text-gray-700' : diferencia < 0 ? 'text-green-700' : 'text-red-700';
               const rowNumber = start + idx + 1;
               return (
                 <tr key={`${r.numeroInscripcion}-${rowNumber}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => onEdit && onEdit(r)}>
                   <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[145px]">{r.numeroInscripcion}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[145px]">{r.numeroInscripcion}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.correlativo}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.codigoSence || '-'}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.ordenCompra || '-'}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.idSence || '-'}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[130px]">{r.idMoodle || '-'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={r.cliente}>{r.cliente}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.ordenCompra || '-'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.idSence || '-'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[130px]">{r.idMoodle || '-'}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={r.empresa}>{r.empresa}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.codigoCurso}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[300px] truncate" title={r.nombreCurso}>{r.nombreCurso}</td>
-<td className="px-4 py-3 whitespace-nowrap min-w-[120px]">
+                  <td className="px-4 py-3 whitespace-nowrap min-w-[120px]">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getModalidadColor(r.modalidad)}`}>
                       {r.modalidad}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatDate(r.inicio)}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{formatDate(r.termino)}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{r.ejecutivo}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[130px]">{participantCounts[r.numeroInscripcion] ?? r.numAlumnosInscritos}</td>
-<td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[110px]">{formatCurrency(r.valorInicial)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{formatDate(r.termino)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{r.ejecutivo}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[130px]">{participantCounts[r.numeroInscripcion] ?? r.numAlumnosInscritos}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[110px]">{formatCurrency(r.valorInicial)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(r.valorFinal)}</td>
-<td className={`px-4 py-3 whitespace-nowrap text-sm text-right min-w-[130px] ${diffColor}`}>{formatCurrency(diferencia)}</td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-sm text-right min-w-[130px] ${diffColor}`}>{formatCurrency(diferencia)}</td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(r.statusAlumnos)}`}>
                       {r.statusAlumnos}
@@ -225,7 +237,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[320px] truncate" title={r.comentarios}>{r.comentarios || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
                     <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-<button title="Alumnos" onClick={() => navigate(`/participantes/${encodeURIComponent(r.numeroInscripcion)}`)} className="p-1 rounded hover:bg-gray-50 text-gray-600" aria-label="Alumnos">
+                      <button title="Alumnos" onClick={() => navigate(`/participantes/${encodeURIComponent(r.numeroInscripcion)}`)} className="p-1 rounded hover:bg-gray-50 text-gray-600" aria-label="Alumnos">
                         <Users className="w-4 h-4" />
                       </button>
                     </div>

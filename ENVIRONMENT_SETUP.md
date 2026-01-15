@@ -6,7 +6,7 @@ This document explains the environment setup for the Moodle Dashboard applicatio
 
 ### Development Environment (`.env.development`)
 ```
-VITE_API_BASE_URL=http://localhost:3000/api
+VITE_API_BASE_URL=http://localhost:3500/api
 VITE_ENVIRONMENT=development
 ```
 

@@ -2,21 +2,28 @@ import config from '../config/environment';
 
 export interface Inscripcion {
   _id?: string;
+  // Autogenerado por el API
   numeroInscripcion: string;
+
+  // Nuevos obligatorios
+  correlativo: number;
+  codigoCurso: string;
+  empresa: string; // Valor fijo: "Mutual"
+
+  // Opcionales/Existentes
   codigoSence?: string;
   ordenCompra?: string;
   idSence?: string;
-  idMoodle?: string;
-  cliente: string;
-  nombreCurso: string;
-  modalidad: string;
-  inicio: string; // ISO string
-  termino: string; // ISO string
+  idMoodle: string; // obligatorio
+  nombreCurso?: string;
+  modalidad: 'e-learning' | 'sincrónico';
+  inicio: string; // ISO string (obligatorio)
+  termino?: string; // ISO string (opcional)
   ejecutivo: string;
   numAlumnosInscritos: number;
-  valorInicial: number;
-  valorFinal: number;
-  statusAlumnos: string;
+  valorInicial?: number;
+  valorFinal?: number;
+  statusAlumnos: 'Pendiente' | 'En curso' | 'Finalizado';
   comentarios?: string;
 }
 
@@ -32,8 +39,11 @@ export const inscripcionesApi = {
     if (!json.success) throw new Error(json.error?.message || 'API error');
     return json.data || [];
   },
-  async create(payload: Inscripcion): Promise<Inscripcion> {
-    const res = await fetch(BASE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  async create(payload: Partial<Inscripcion>): Promise<Inscripcion> {
+    // Asegurar empresa por defecto y no enviar numeroInscripcion cuando se crea
+    const body = { ...payload, empresa: 'Mutual' } as any;
+    if (!body.numeroInscripcion) delete body.numeroInscripcion;
+    const res = await fetch(BASE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error('Error creating inscripción');
     const json: ApiResponse<Inscripcion> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');

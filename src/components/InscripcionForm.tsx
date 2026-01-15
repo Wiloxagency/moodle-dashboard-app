@@ -10,18 +10,24 @@ interface Props {
 }
 
 const empty: Inscripcion = {
-  numeroInscripcion: '',
-  cliente: '',
-  nombreCurso: '',
-  modalidad: 'E-Learning',
+  numeroInscripcion: '', // autogenerado
+  correlativo: 0,
+  codigoCurso: '',
+  empresa: 'Mutual',
+  codigoSence: undefined,
+  ordenCompra: undefined,
+  idSence: undefined,
+  idMoodle: '',
+  nombreCurso: undefined,
+  modalidad: 'e-learning',
   inicio: '',
-  termino: '',
+  termino: undefined,
   ejecutivo: '',
   numAlumnosInscritos: 0,
-  valorInicial: 0,
-  valorFinal: 0,
+  valorInicial: undefined,
+  valorFinal: undefined,
   statusAlumnos: 'Pendiente',
-  comentarios: ''
+  comentarios: undefined,
 };
 
 const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete }) => {
@@ -29,7 +35,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isEditing = Boolean(initial && initial._id);
+  const isEditing = Boolean(initial && (initial as any)._id);
 
   useEffect(() => {
     setForm({ ...empty, ...(initial as any) });
@@ -37,29 +43,32 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setForm((f) => ({ ...f, [name]: name.includes('valor') || name === 'numAlumnosInscritos' ? Number(value) : value }));
+    const numeric = ['numAlumnosInscritos', 'valorInicial', 'valorFinal', 'correlativo'];
+    setForm((f) => ({
+      ...f,
+      [name]: numeric.includes(name) ? (value === '' ? (undefined as any) : Number(value)) : value,
+    }));
   };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave(form);
+      // No enviar numeroInscripcion vacío; el API lo autogenera
+      const payload: any = { ...form };
+      if (!payload.numeroInscripcion) delete payload.numeroInscripcion;
+      await onSave(payload);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!form._id || !onDelete) return;
-    
-    if (!window.confirm('¿Está seguro de que desea eliminar esta inscripción? Esta acción no se puede deshacer.')) {
-      return;
-    }
-
+    if (!(form as any)._id || !onDelete) return;
+    if (!window.confirm('¿Está seguro de que desea eliminar esta inscripción? Esta acción no se puede deshacer.')) return;
     setDeleting(true);
     try {
-      await onDelete(form._id);
+      await onDelete((form as any)._id as string);
     } finally {
       setDeleting(false);
     }
@@ -70,8 +79,17 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">N° Inscripción</label>
-          <input name="numeroInscripcion" value={form.numeroInscripcion} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+          <input name="numeroInscripcion" value={form.numeroInscripcion || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" placeholder="Se genera al guardar" disabled />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">N° Correlativo</label>
+          <input type="number" name="correlativo" value={form.correlativo ?? ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Código del Curso</label>
+          <input name="codigoCurso" value={form.codigoCurso || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Código Sence</label>
           <input name="codigoSence" value={form.codigoSence || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
@@ -84,68 +102,72 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
           <label className="block text-sm font-medium text-gray-700">ID Sence</label>
           <input name="idSence" value={form.idSence || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700">ID Moodle</label>
-          <input name="idMoodle" value={form.idMoodle || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <input name="idMoodle" value={form.idMoodle || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Cliente</label>
-          <input name="cliente" value={form.cliente} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700">Empresa</label>
+          <input name="empresa" value={form.empresa} onChange={change} className="mt-1 w-full border rounded px-3 py-2 bg-gray-100" disabled />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Nombre Curso</label>
-          <input name="nombreCurso" value={form.nombreCurso} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700">Nombre del Curso</label>
+          <input name="nombreCurso" value={form.nombreCurso || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Modalidad</label>
           <select name="modalidad" value={form.modalidad} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
-            <option value="E-Learning">E-Learning</option>
-            <option value="Sincrónico">Sincrónico</option>
+            <option value="e-learning">e-learning</option>
+            <option value="sincrónico">sincrónico</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Inicio</label>
-          <input type="date" name="inicio" value={form.inicio ? form.inicio.substring(0,10) : ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
+          <input type="date" name="inicio" value={form.inicio ? form.inicio.substring(0,10) : ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Termino</label>
-          <input type="date" name="termino" value={form.termino ? form.termino.substring(0,10) : ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700">Fecha Final</label>
+          <input type="date" name="termino" value={form.termino ? String(form.termino).substring(0,10) : ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700">Ejecutivo</label>
-          <input name="ejecutivo" value={form.ejecutivo} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <input name="ejecutivo" value={form.ejecutivo} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Num Alumnos Inscritos</label>
-          <input type="number" name="numAlumnosInscritos" value={form.numAlumnosInscritos} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <input type="number" name="numAlumnosInscritos" value={form.numAlumnosInscritos ?? ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Valor INICIAL</label>
-          <input type="number" name="valorInicial" value={form.valorInicial} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700">Valor Inicial</label>
+          <input type="number" name="valorInicial" value={form.valorInicial ?? ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Valor FINAL</label>
-          <input type="number" name="valorFinal" value={form.valorFinal} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <label className="block text-sm font-medium text-gray-700">Valor Final</label>
+          <input type="number" name="valorFinal" value={form.valorFinal ?? ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Status de Alumnos</label>
           <select name="statusAlumnos" value={form.statusAlumnos} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
-            <option>Pendiente</option>
-            <option>En curso</option>
-            <option>Finalizado</option>
+            <option value="Pendiente">Pendiente</option>
+            <option value="En curso">En curso</option>
+            <option value="Finalizado">Finalizado</option>
           </select>
         </div>
       </div>
+
       <div>
-        <label className="block text-sm font-medium text-gray-700">Comentarios</label>
+        <label className="block text-sm font-medium text-gray-700">Comentario</label>
         <textarea name="comentarios" value={form.comentarios || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" rows={3} />
       </div>
 
       <div className="flex justify-between items-center pt-4 border-t">
         <div>
           {isEditing && onDelete && (
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleDelete}
               disabled={deleting || saving}
               className="flex items-center gap-2 px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -159,19 +181,19 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
             </button>
           )}
         </div>
-        
+
         <div className="flex gap-2">
-          <button 
-            type="button" 
-            onClick={onCancel} 
+          <button
+            type="button"
+            onClick={onCancel}
             disabled={saving || deleting}
             className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancelar
           </button>
-          <button 
-            type="submit" 
-            disabled={saving || deleting} 
+          <button
+            type="submit"
+            disabled={saving || deleting}
             className="flex items-center gap-2 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
