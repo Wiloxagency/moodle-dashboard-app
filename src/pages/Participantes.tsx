@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import config from '../config/environment';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, ArrowUpDown, Loader2, Plus } from 'lucide-react';
+import { ChevronUp, ChevronDown, ArrowUpDown, Loader2, Plus, RotateCw } from 'lucide-react';
 import { participantesApi, type Participante } from '../services/participantes';
 import ParticipanteForm from '../components/ParticipanteForm';
 
@@ -39,6 +39,8 @@ const ParticipantesPage: React.FC = () => {
   const [notice, setNotice] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
+  const [reportReloading, setReportReloading] = useState(false);
+  const [reportUpdatedAt, setReportUpdatedAt] = useState<string | null>(null);
   const [reportData, setReportData] = useState<{ passed: any[]; failed: any[] } | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
 
@@ -111,7 +113,6 @@ const ParticipantesPage: React.FC = () => {
     try {
       const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(numeroInscripcion)}/grades`;
       const res = await fetch(url);
-      // Nota: normalmente usamos apiBaseUrl, pero aquí el backend está en el mismo host en dev. Si fuera necesario, podemos cambiar a config.apiBaseUrl.
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || 'Error obteniendo reporte');
@@ -119,10 +120,33 @@ const ParticipantesPage: React.FC = () => {
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message || 'Error obteniendo reporte');
       setReportData(json.data || { passed: [], failed: [] });
+      setReportUpdatedAt(json.updatedAt || null);
     } catch (e:any) {
       setReportError(e?.message || 'Error obteniendo reporte');
     } finally {
       setReportLoading(false);
+    }
+  };
+
+  const reloadGradesReport = async () => {
+    if (!numeroInscripcion) return;
+    setReportReloading(true);
+    setReportError(null);
+    try {
+      const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(numeroInscripcion)}/grades?reload=1`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Error regenerando reporte');
+      }
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Error regenerando reporte');
+      setReportData(json.data || { passed: [], failed: [] });
+      setReportUpdatedAt(json.updatedAt || null);
+    } catch (e:any) {
+      setReportError(e?.message || 'Error regenerando reporte');
+    } finally {
+      setReportReloading(false);
     }
   };
 const requestSort = (key: SortKey) => {
@@ -207,7 +231,15 @@ const requestSort = (key: SortKey) => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 m-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Reporte de notas</h3>
-              <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
+              <div className="flex items-center gap-3">
+                {reportUpdatedAt && (
+                  <span className="text-xs text-gray-500">Última actualización: {new Date(reportUpdatedAt).toLocaleString()}</span>
+                )}
+                <button onClick={reloadGradesReport} disabled={reportReloading} className="inline-flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50">
+                  {reportReloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+                </button>
+                <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
+              </div>
             </div>
             {reportLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -421,7 +453,15 @@ const requestSort = (key: SortKey) => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 m-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Reporte de notas</h3>
-              <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
+              <div className="flex items-center gap-3">
+                {reportUpdatedAt && (
+                  <span className="text-xs text-gray-500">Última actualización: {new Date(reportUpdatedAt).toLocaleString()}</span>
+                )}
+                <button onClick={reloadGradesReport} disabled={reportReloading} className="inline-flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50">
+                  {reportReloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
+                </button>
+                <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
+              </div>
             </div>
             {reportLoading ? (
               <div className="flex items-center justify-center py-12">
