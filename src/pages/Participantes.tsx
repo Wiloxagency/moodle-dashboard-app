@@ -20,6 +20,13 @@ type SortKey =
 const ParticipantesPage: React.FC = () => {
   const { numeroInscripcion = '' } = useParams();
   const [data, setData] = useState<Participante[]>([]);
+  const normalizeRut = (v?: string) => (v || "").replace(/[.\-]/g, "").toLowerCase();
+
+  const participantesByRut = useMemo(() => {
+    const m: Record<string, Participante> = {};
+    for (const p of data) if (p.rut) m[normalizeRut(p.rut)] = p;
+    return m;
+  }, [data]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [perPage, setPerPage] = useState(25);
@@ -216,6 +223,7 @@ const requestSort = (key: SortKey) => {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-3 py-2 text-right">No.</th>
                         <th className="px-3 py-2 text-left">Nombres</th>
                         <th className="px-3 py-2 text-left">Apellidos</th>
                         <th className="px-3 py-2 text-left">Rut Alumno</th>
@@ -228,8 +236,9 @@ const requestSort = (key: SortKey) => {
                     <tbody className="divide-y divide-gray-200">
                       {reportData.passed.map((r, i) => (
                         <tr key={`${r.RutAlumno}-${i}`}>
-                          <td className="px-3 py-2">{r.Nombres}</td>
-                          <td className="px-3 py-2">{r.Apellidos}</td>
+                          <td className="px-3 py-2 text-right">{i + 1}</td>
+                          <td className="px-3 py-2">{participantesByRut[normalizeRut(r.RutAlumno)]?.nombres || r.Nombres || ""}</td>
+                          <td className="px-3 py-2">{participantesByRut[normalizeRut(r.RutAlumno)]?.apellidos || r.Apellidos || ""}</td>
                           <td className="px-3 py-2">{r.RutAlumno}</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAvance}%</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno}%</td>
@@ -238,7 +247,7 @@ const requestSort = (key: SortKey) => {
                         </tr>
                       ))}
                       {reportData.passed.length === 0 && (
-                        <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
+                        <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -428,6 +437,7 @@ const requestSort = (key: SortKey) => {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
+                        <th className="px-3 py-2 text-right">No.</th>
                         <th className="px-3 py-2 text-left">Nombres</th>
                         <th className="px-3 py-2 text-left">Apellidos</th>
                         <th className="px-3 py-2 text-left">Rut Alumno</th>
@@ -440,8 +450,9 @@ const requestSort = (key: SortKey) => {
                     <tbody className="divide-y divide-gray-200">
                       {reportData.passed.map((r, i) => (
                         <tr key={`${r.RutAlumno}-${i}`}>
-                          <td className="px-3 py-2">{r.Nombres}</td>
-                          <td className="px-3 py-2">{r.Apellidos}</td>
+                          <td className="px-3 py-2 text-right">{i + 1}</td>
+                          <td className="px-3 py-2">{participantesByRut[normalizeRut(r.RutAlumno)]?.nombres || r.Nombres || ""}</td>
+                          <td className="px-3 py-2">{participantesByRut[normalizeRut(r.RutAlumno)]?.apellidos || r.Apellidos || ""}</td>
                           <td className="px-3 py-2">{r.RutAlumno}</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAvance}%</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno}%</td>
@@ -450,7 +461,7 @@ const requestSort = (key: SortKey) => {
                         </tr>
                       ))}
                       {reportData.passed.length === 0 && (
-                        <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
+                        <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
                       )}
                     </tbody>
                   </table>
