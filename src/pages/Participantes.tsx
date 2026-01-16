@@ -216,25 +216,25 @@ const requestSort = (key: SortKey) => {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left">IdCurso</th>
-                        <th className="px-3 py-2 text-left">RutAlumno</th>
+                        <th className="px-3 py-2 text-left">Nombres</th>
+                        <th className="px-3 py-2 text-left">Apellidos</th>
+                        <th className="px-3 py-2 text-left">Rut Alumno</th>
                         <th className="px-3 py-2 text-right">% Avance</th>
                         <th className="px-3 py-2 text-right">% Asistencia</th>
                         <th className="px-3 py-2 text-right">Nota Final</th>
                         <th className="px-3 py-2 text-left">Estado</th>
-                        <th className="px-3 py-2 text-left">Observación</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {reportData.passed.map((r, i) => (
                         <tr key={`${r.RutAlumno}-${i}`}>
-                          <td className="px-3 py-2">{r.IdCurso}</td>
+                          <td className="px-3 py-2">{r.Nombres}</td>
+                          <td className="px-3 py-2">{r.Apellidos}</td>
                           <td className="px-3 py-2">{r.RutAlumno}</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAvance}%</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno}%</td>
                           <td className="px-3 py-2 text-right">{r.NotaFinal}</td>
-                          <td className="px-3 py-2">{r.EstadoCurso === '1' ? 'Aprobado' : (r.EstadoCurso === '2' ? 'Reprobado' : 'Sin nota')}</td>
-                          <td className="px-3 py-2">{r.Observacion}</td>
+                          <td className={`px-3 py-2 ${r.EstadoCurso === '1' ? 'text-green-600 font-semibold' : (r.EstadoCurso === '2' ? 'text-red-600 font-semibold' : 'text-gray-600')}`}>{r.EstadoCurso === '1' ? 'Aprobado' : (r.EstadoCurso === '2' ? 'Reprobado' : 'Sin nota')}</td>
                         </tr>
                       ))}
                       {reportData.passed.length === 0 && (
@@ -428,25 +428,25 @@ const requestSort = (key: SortKey) => {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-3 py-2 text-left">IdCurso</th>
-                        <th className="px-3 py-2 text-left">RutAlumno</th>
+                        <th className="px-3 py-2 text-left">Nombres</th>
+                        <th className="px-3 py-2 text-left">Apellidos</th>
+                        <th className="px-3 py-2 text-left">Rut Alumno</th>
                         <th className="px-3 py-2 text-right">% Avance</th>
                         <th className="px-3 py-2 text-right">% Asistencia</th>
                         <th className="px-3 py-2 text-right">Nota Final</th>
                         <th className="px-3 py-2 text-left">Estado</th>
-                        <th className="px-3 py-2 text-left">Observación</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {reportData.passed.map((r, i) => (
                         <tr key={`${r.RutAlumno}-${i}`}>
-                          <td className="px-3 py-2">{r.IdCurso}</td>
+                          <td className="px-3 py-2">{r.Nombres}</td>
+                          <td className="px-3 py-2">{r.Apellidos}</td>
                           <td className="px-3 py-2">{r.RutAlumno}</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAvance}%</td>
                           <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno}%</td>
                           <td className="px-3 py-2 text-right">{r.NotaFinal}</td>
-                          <td className="px-3 py-2">{r.EstadoCurso === '1' ? 'Aprobado' : (r.EstadoCurso === '2' ? 'Reprobado' : 'Sin nota')}</td>
-                          <td className="px-3 py-2">{r.Observacion}</td>
+                          <td className={`px-3 py-2 ${r.EstadoCurso === '1' ? 'text-green-600 font-semibold' : (r.EstadoCurso === '2' ? 'text-red-600 font-semibold' : 'text-gray-600')}`}>{r.EstadoCurso === '1' ? 'Aprobado' : (r.EstadoCurso === '2' ? 'Reprobado' : 'Sin nota')}</td>
                         </tr>
                       ))}
                       {reportData.passed.length === 0 && (
