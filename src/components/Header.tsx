@@ -1,14 +1,24 @@
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, Sheet, LogOut, User, Home, Users, Building2, FileText as FileIcon, Waypoints, UserCircle2 } from 'lucide-react';
 import logo from '../assets/logo.png';
+import { useAuth } from '../context/AuthContext';
 
 const Header: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const isActive = (path: string) => {
     return location.pathname === path;
   };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
+  };
+
+  const isSuperAdmin = user?.role === 'superAdmin';
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3">
@@ -24,9 +34,9 @@ const Header: React.FC = () => {
           {/* Navigation Links */}
           <nav className="flex space-x-4">
             <Link 
-              to="/" 
+              to="/dashboard" 
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/') 
+                isActive('/dashboard') 
                   ? 'bg-blue-50 text-blue-700 font-medium' 
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               }`}
@@ -45,17 +55,32 @@ const Header: React.FC = () => {
               <Users className="w-4 h-4" />
               <span>Inscripciones</span>
             </Link>
-            <Link 
-              to="/empresas" 
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/empresas') 
-                  ? 'bg-blue-50 text-blue-700 font-medium' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Empresas</span>
-            </Link>
+            {isSuperAdmin && (
+              <>
+                <Link 
+                  to="/empresas" 
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                    isActive('/empresas') 
+                      ? 'bg-blue-50 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Empresas</span>
+                </Link>
+                <Link 
+                  to="/usuarios" 
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                    isActive('/usuarios') 
+                      ? 'bg-blue-50 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <UserCircle2 className="w-4 h-4" />
+                  <span>Usuarios</span>
+                </Link>
+              </>
+            )}
             <Link 
               to="/sence" 
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
@@ -110,11 +135,14 @@ const Header: React.FC = () => {
           {/* User Name */}
           <div className="flex items-center space-x-2 text-gray-700">
             <User className="w-5 h-5 text-gray-500" />
-            <span className="text-sm font-medium">Mutual</span>
+            <span className="text-sm font-medium">{user?.username ?? 'Invitado'}</span>
           </div>
           
           {/* Logout Button */}
-          <button className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+          <button
+            onClick={handleLogout}
+            className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+          >
             <LogOut className="w-4 h-4" />
             <span className="text-sm font-medium">Logout</span>
           </button>

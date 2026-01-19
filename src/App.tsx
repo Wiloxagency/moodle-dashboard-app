@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import Inscripciones from './pages/Inscripciones';
@@ -7,22 +7,91 @@ import EmpresasPage from './pages/Empresas';
 import SencePage from './pages/Sence';
 import ModalidadPage from './pages/Modalidad';
 import EjecutivosPage from './pages/Ejecutivos';
+import LoginPage from './pages/Login';
+import UsuariosPage from './pages/Usuarios';
+import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
+  const location = useLocation();
+  const isLoginRoute = location.pathname === '/';
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <Header />
+      {/* Header: oculto en la pantalla de login */}
+      {!isLoginRoute && <Header />}
       
       {/* Routes */}
       <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/inscripciones" element={<Inscripciones />} />
-        <Route path="/empresas" element={<EmpresasPage />} />
-        <Route path="/sence" element={<SencePage />} />
-        <Route path="/modalidad" element={<ModalidadPage />} />
-        <Route path="/ejecutivos" element={<EjecutivosPage />} />
-        <Route path="/participantes/:numeroInscripcion" element={<Participantes />} />
+        {/* Login en la ruta raíz */}
+        <Route path="/" element={<LoginPage />} />
+
+        {/* Rutas protegidas solo por autenticación */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/inscripciones"
+          element={
+            <ProtectedRoute>
+              <Inscripciones />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sence"
+          element={
+            <ProtectedRoute>
+              <SencePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/modalidad"
+          element={
+            <ProtectedRoute>
+              <ModalidadPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/ejecutivos"
+          element={
+            <ProtectedRoute>
+              <EjecutivosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/participantes/:numeroInscripcion"
+          element={
+            <ProtectedRoute>
+              <Participantes />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Rutas protegidas por rol superAdmin (RBAC estricto) */}
+        <Route
+          path="/empresas"
+          element={
+            <ProtectedRoute requiredRole="superAdmin">
+              <EmpresasPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/usuarios"
+          element={
+            <ProtectedRoute requiredRole="superAdmin">
+              <UsuariosPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </div>
   );
