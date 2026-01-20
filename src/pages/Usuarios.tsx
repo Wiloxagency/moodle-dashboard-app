@@ -173,8 +173,8 @@ const UsuariosPage: React.FC = () => {
             <h2 className="text-lg font-semibold mb-4 text-gray-800">
               {editingId ? 'Editar usuario' : 'Crear nuevo usuario'}
             </h2>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div className="md:col-span-2">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="username">
                   Usuario
                 </label>
@@ -217,7 +217,7 @@ const UsuariosPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex space-x-2 md:justify-end">
+              <div className="flex space-x-2 justify-start">
                 {editingId && (
                   <button
                     type="button"
