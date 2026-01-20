@@ -31,9 +31,9 @@ const UsuariosPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const load = () => {
+  const load = async () => {
     try {
-      const data = listUsers();
+      const data = await listUsers();
       setUsers(data);
     } catch (e) {
       console.error(e);
@@ -54,7 +54,7 @@ const UsuariosPage: React.FC = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
 
@@ -71,11 +71,11 @@ const UsuariosPage: React.FC = () => {
     try {
       if (!editingId) {
         // Crear nuevo usuario
-        createUser(form.username, form.role, form.password);
+        await createUser(form.username, form.role, form.password);
         setSuccess('Usuario creado correctamente');
       } else {
         // Actualizar usuario (sin cambiar contraseña aquí)
-        updateUser(editingId, {
+        await updateUser(editingId, {
           username: form.username,
           role: form.role,
         });
@@ -101,11 +101,11 @@ const UsuariosPage: React.FC = () => {
     });
   };
 
-  const handleDelete = (user: StoredUser) => {
+  const handleDelete = async (user: StoredUser) => {
     resetMessages();
-    if (!window.confirm(`¿Eliminar usuario "${user.username}"?`)) return;
+    if (!window.confirm(`¿Eliminar usuario \"${user.username}\"?`)) return;
     try {
-      deleteUser(user.id);
+      await deleteUser(user.id);
       setSuccess('Usuario eliminado correctamente');
       load();
     } catch (e) {
@@ -120,7 +120,7 @@ const UsuariosPage: React.FC = () => {
     setNewPassword('');
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordUserId) return;
     if (!newPassword) {
@@ -128,7 +128,7 @@ const UsuariosPage: React.FC = () => {
       return;
     }
     try {
-      changePassword(passwordUserId, newPassword);
+      await changePassword(passwordUserId, newPassword);
       setSuccess('Contraseña actualizada correctamente');
       setPasswordUserId(null);
       setNewPassword('');

@@ -1,124 +1,101 @@
 import type { Role } from '../types/auth';
+import config from '../config/environment';
+import type { ApiResponse } from '../types/api';
 
 export interface StoredUser {
   id: string;
   username: string;
   role: Role;
-  password: string; // NOTE: demo only; en producción debe ir hasheada en backend
 }
 
-const STORAGE_KEY = 'app_users_v1';
+interface ApiUser {
+  _id: string;
+  username: string;
+  role: Role;
+}
 
-function loadUsers(): StoredUser[] {
-  if (typeof window === 'undefined') return [];
+const BASE_URL = config.apiBaseUrl;
+
+function mapUser(apiUser: ApiUser): StoredUser {
+  return {
+    id: apiUser._id,
+    username: apiUser.username,
+    role: apiUser.role,
+  };
+}
+
+async function request<T>(path: string, options: RequestInit): Promise<T> {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    ...options,
+  });
+
+  let payload: ApiResponse<T>;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as StoredUser[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed;
-  } catch {
-    return [];
-  }
-}
-
-function saveUsers(users: StoredUser[]): void {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(users));
-}
-
-function ensureInitialSuperAdmin(): StoredUser[] {
-  let users = loadUsers();
-  const hasSuperAdmin = users.some(u => u.role === 'superAdmin');
-  if (!hasSuperAdmin) {
-    const defaultUser: StoredUser = {
-      id: crypto.randomUUID(),
-      username: 'superadmin',
-      role: 'superAdmin',
-      password: '123456',
-    };
-    users = [defaultUser];
-    saveUsers(users);
-  }
-  return users;
-}
-
-export function listUsers(): StoredUser[] {
-  return ensureInitialSuperAdmin();
-}
-
-export function findUserByCredentials(username: string, password: string): StoredUser | undefined {
-  const users = ensureInitialSuperAdmin();
-  const key = username.trim().toLowerCase();
-  return users.find(u => u.username.trim().toLowerCase() === key && u.password === password);
-}
-
-export function createUser(username: string, role: Role, password: string): StoredUser {
-  const users = ensureInitialSuperAdmin();
-  const key = username.trim().toLowerCase();
-  if (users.some(u => u.username.trim().toLowerCase() === key)) {
-    throw new Error('El nombre de usuario ya existe');
-  }
-  const user: StoredUser = {
-    id: crypto.randomUUID(),
-    username: username.trim(),
-    role,
-    password,
-  };
-  const next = [...users, user];
-  saveUsers(next);
-  return user;
-}
-
-export function updateUser(id: string, data: Partial<Pick<StoredUser, 'username' | 'role'>>): StoredUser {
-  const users = ensureInitialSuperAdmin();
-  const index = users.findIndex(u => u.id === id);
-  if (index === -1) {
-    throw new Error('Usuario no encontrado');
+    payload = (await response.json()) as ApiResponse<T>;
+  } catch (e) {
+    throw new Error(`Error de red o de formato de respuesta (${response.status})`);
   }
 
-  // Evitar duplicados de username
-  if (data.username) {
-    const key = data.username.trim().toLowerCase();
-    if (users.some(u => u.id !== id && u.username.trim().toLowerCase() === key)) {
-      throw new Error('El nombre de usuario ya existe');
+  if (!payload.success) {
+    const msg = payload.error?.message || `Error HTTP ${response.status}`;
+    throw new Error(msg);
+  }
+
+  return payload.data as T;
+}
+
+export async function listUsers(): Promise<StoredUser[]> {
+  const users = await request<ApiUser[]>('/users', { method: 'GET' });
+  return users.map(mapUser);
+}
+
+export async function loginUser(username: string, password: string): Promise<StoredUser | null> {
+  try {
+    const user = await request<ApiUser>('/users/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    });
+    return mapUser(user);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Credenciales inválidas') {
+      return null;
     }
+    throw e;
   }
-
-  const updated: StoredUser = {
-    ...users[index],
-    ...data,
-    username: data.username ? data.username.trim() : users[index].username,
-  };
-  const next = [...users];
-  next[index] = updated;
-  saveUsers(next);
-  return updated;
 }
 
-export function changePassword(id: string, newPassword: string): StoredUser {
-  const users = ensureInitialSuperAdmin();
-  const index = users.findIndex(u => u.id === id);
-  if (index === -1) {
-    throw new Error('Usuario no encontrado');
-  }
-  const updated: StoredUser = { ...users[index], password: newPassword };
-  const next = [...users];
-  next[index] = updated;
-  saveUsers(next);
-  return updated;
+export async function createUser(username: string, role: Role, password: string): Promise<StoredUser> {
+  const user = await request<ApiUser>('/users', {
+    method: 'POST',
+    body: JSON.stringify({ username, role, password }),
+  });
+  return mapUser(user);
 }
 
-export function deleteUser(id: string): void {
-  const users = ensureInitialSuperAdmin();
-  const user = users.find(u => u.id === id);
-  if (!user) {
-    throw new Error('Usuario no encontrado');
-  }
-  const superAdmins = users.filter(u => u.role === 'superAdmin');
-  if (user.role === 'superAdmin' && superAdmins.length <= 1) {
-    throw new Error('No se puede eliminar el último Superadmin');
-  }
-  const next = users.filter(u => u.id !== id);
-  saveUsers(next);
+export async function updateUser(
+  id: string,
+  data: Partial<Pick<StoredUser, 'username' | 'role'>>,
+): Promise<StoredUser> {
+  const user = await request<ApiUser>(`/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+  return mapUser(user);
+}
+
+export async function changePassword(id: string, newPassword: string): Promise<void> {
+  await request<StoredUser | null>(`/users/${id}/password`, {
+    method: 'POST',
+    body: JSON.stringify({ password: newPassword }),
+  });
+}
+
+export async function deleteUser(id: string): Promise<void> {
+  await request<null>(`/users/${id}`, {
+    method: 'DELETE',
+  });
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import type { AuthUser } from '../types/auth';
-import { findUserByCredentials } from '../services/users';
+import { loginUser } from '../services/users';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -14,12 +14,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(null);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    const storedUser = findUserByCredentials(username, password);
-    if (!storedUser) {
+    try {
+      const storedUser = await loginUser(username, password);
+      if (!storedUser) {
+        return false;
+      }
+      setUser({ username: storedUser.username, role: storedUser.role });
+      return true;
+    } catch (e) {
+      console.error(e);
       return false;
     }
-    setUser({ username: storedUser.username, role: storedUser.role });
-    return true;
   };
 
   const logout = () => {
