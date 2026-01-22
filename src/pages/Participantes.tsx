@@ -188,8 +188,28 @@ const ParticipantesPage: React.FC = () => {
       }
 
       const updatedList = Array.from(byRut.values());
-      setData(updatedList);
-      setNotice(`Importación desde Excel completa: procesadas ${processed} filas. Total participantes en la inscripción: ${updatedList.length}.`);
+      // Persistir en backend mediante bulk upsert
+      try {
+        const payload = updatedList.map(p => ({
+          rut: p.rut,
+          nombres: p.nombres,
+          apellidos: p.apellidos,
+          mail: p.mail,
+          telefono: p.telefono ? p.telefono : undefined,
+          franquiciaPorcentaje: p.franquiciaPorcentaje,
+          costoOtic: p.costoOtic,
+          costoEmpresa: p.costoEmpresa,
+          estadoInscripcion: p.estadoInscripcion,
+          observacion: p.observacion,
+        }));
+        const r = await participantesApi.importBulk(numeroInscripcion, payload);
+        await load();
+        setNotice(`Importación desde Excel completa: procesadas ${processed} filas. Insertados ${r.inserted}, actualizados ${r.updated}. Total en la inscripción: ${r.total}.`);
+      } catch (err:any) {
+        // Si falla la persistencia, al menos mostramos los datos cargados en UI
+        setData(updatedList);
+        setNotice(err?.message || 'Error guardando participantes en el servidor');
+      }
     } catch (e:any) {
       console.error(e);
       setNotice(e?.message || 'Error importando desde Excel');

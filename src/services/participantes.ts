@@ -84,6 +84,20 @@ export const participantesApi = {
     return json.data!;
   }
 
+  ,
+  async importBulk(numeroInscripcion: string, participantes: Array<Partial<Participante>>): Promise<{ inserted: number; updated: number; total: number }> {
+    const res = await fetch(`${BASE}/import/bulk`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numeroInscripcion, participantes })
+    });
+    const json: ApiResponse<{ inserted: number; updated: number; total: number }> = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message || 'Error importando participantes');
+    }
+    return json.data!;
+  }
+
 };
 
 export default participantesApi;
