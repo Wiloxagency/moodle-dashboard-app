@@ -7,7 +7,7 @@ import { participantesApi } from '../services/participantes';
 const Inscripciones: React.FC = () => {
   const [data, setData] = useState<Inscripcion[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Inscripcion | null>(null);
+  const [editing, setEditing] = useState<Partial<Inscripcion> | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
   const load = async () => {
@@ -55,7 +55,28 @@ const Inscripciones: React.FC = () => {
   };
 
   const openForNew = () => {
-    setEditing(null);
+    // Calcular el número de inscripción siguiente en base a los datos actuales
+    const usedNumbers = new Set<string>();
+    let maxNumero = 0;
+
+    for (const ins of data) {
+      if (!ins.numeroInscripcion) continue;
+      usedNumbers.add(ins.numeroInscripcion);
+      const n = parseInt(ins.numeroInscripcion, 10);
+      if (!Number.isNaN(n) && n > maxNumero) {
+        maxNumero = n;
+      }
+    }
+
+    // Punto de partida: 100000 si no hay registros
+    let next = maxNumero > 0 ? maxNumero + 1 : 100000;
+
+    // Evitar duplicados por seguridad
+    while (usedNumbers.has(String(next))) {
+      next++;
+    }
+
+    setEditing({ numeroInscripcion: String(next) });
     setShowForm(true);
   };
 
