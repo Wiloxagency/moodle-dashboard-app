@@ -15,8 +15,9 @@ function App() {
   const location = useLocation();
   const isLoginRoute = location.pathname === '/';
 
+  const containerClass = isLoginRoute ? 'min-h-screen bg-gray-50' : 'h-screen overflow-hidden bg-gray-50';
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={containerClass}>
       {/* Header: oculto en la pantalla de login */}
       {!isLoginRoute && <Header />}
       

@@ -21,7 +21,7 @@ const Header: React.FC = () => {
   const isSuperAdmin = user?.role === 'superAdmin';
 
   return (
-    <header className="bg-white border-b border-gray-200 px-4 py-3">
+    <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8">
           {/* EDUTECNO Logo */}

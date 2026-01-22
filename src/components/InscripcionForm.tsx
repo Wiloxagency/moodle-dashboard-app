@@ -56,6 +56,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
     try {
       // No enviar numeroInscripcion vacío; el API lo autogenera
       const payload: any = { ...form };
+      if (payload._id) delete payload._id;
       if (!payload.numeroInscripcion) delete payload.numeroInscripcion;
       await onSave(payload);
     } finally {
@@ -82,11 +83,11 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
           <input name="numeroInscripcion" value={form.numeroInscripcion || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" placeholder="Se genera al guardar" disabled />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">N° Correlativo</label>
+          <label className="block text-sm font-medium text-gray-700">N° Correlativo <span className="text-red-500">*</span></label>
           <input type="number" name="correlativo" value={form.correlativo ?? ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Código del Curso</label>
+          <label className="block text-sm font-medium text-gray-700">Código del Curso <span className="text-red-500">*</span></label>
           <input name="codigoCurso" value={form.codigoCurso || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
 
@@ -104,7 +105,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">ID Moodle</label>
+          <label className="block text-sm font-medium text-gray-700">ID Moodle <span className="text-red-500">*</span></label>
           <input name="idMoodle" value={form.idMoodle || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
@@ -117,14 +118,14 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Modalidad</label>
-          <select name="modalidad" value={form.modalidad} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
+          <label className="block text-sm font-medium text-gray-700">Modalidad <span className="text-red-500">*</span></label>
+          <select name="modalidad" required value={form.modalidad} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
             <option value="e-learning">e-learning</option>
             <option value="sincrónico">sincrónico</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Fecha de Inicio</label>
+          <label className="block text-sm font-medium text-gray-700">Fecha de Inicio <span className="text-red-500">*</span></label>
           <input type="date" name="inicio" value={form.inicio ? form.inicio.substring(0,10) : ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
@@ -133,11 +134,11 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Ejecutivo</label>
+          <label className="block text-sm font-medium text-gray-700">Ejecutivo <span className="text-red-500">*</span></label>
           <input name="ejecutivo" value={form.ejecutivo} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Num Alumnos Inscritos</label>
+          <label className="block text-sm font-medium text-gray-700">Num Alumnos Inscritos <span className="text-red-500">*</span></label>
           <input type="number" name="numAlumnosInscritos" value={form.numAlumnosInscritos ?? ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
@@ -149,8 +150,8 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
           <input type="number" name="valorFinal" value={form.valorFinal ?? ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Status de Alumnos</label>
-          <select name="statusAlumnos" value={form.statusAlumnos} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
+          <label className="block text-sm font-medium text-gray-700">Status de Alumnos <span className="text-red-500">*</span></label>
+          <select name="statusAlumnos" required value={form.statusAlumnos} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
             <option value="Pendiente">Pendiente</option>
             <option value="En curso">En curso</option>
             <option value="Finalizado">Finalizado</option>

@@ -13,12 +13,12 @@ const Dashboard: React.FC = () => {
       <div className="flex-1 overflow-auto custom-scrollbar">
         <div className="p-6">
           {/* Statistics Cards */}
-          <div className="mb-8">
+          <div className="mb-8 w-full max-w-[1150px] mx-auto">
             <StatisticsCards />
           </div>
           
           {/* Course Table */}
-          <div>
+          <div className="w-full max-w-[1150px] mx-auto">
             <CourseTable />
           </div>
         </div>

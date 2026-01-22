@@ -1,78 +1,73 @@
 import React, { useState, useEffect } from 'react';
-import apiService, { ApiError } from '../services/api';
-import type { SimplifiedCourse } from '../types/api';
+import type { Inscripcion } from '../services/inscripciones';
+import inscripcionesApi from '../services/inscripciones';
+import participantesApi from '../services/participantes';
 
-interface CourseTableState {
-  courses: SimplifiedCourse[];
+interface DashboardTableState {
+  inscripciones: Inscripcion[];
+  participantCounts: Record<string, number>;
   loading: boolean;
   error: string | null;
 }
 
 const CourseTable: React.FC = () => {
-  const [state, setState] = useState<CourseTableState>({
-    courses: [],
+  const [state, setState] = useState<DashboardTableState>({
+    inscripciones: [],
+    participantCounts: {},
     loading: true,
     error: null
   });
 
-  // Load courses for category 57
+  // Cargar inscripciones y conteos de participantes
   useEffect(() => {
-    const loadCourses = async () => {
+    const load = async () => {
       try {
         setState(prev => ({ ...prev, loading: true, error: null }));
-        
-        const coursesData = await apiService.getSimplifiedCoursesByCategory(57);
-        
-        setState(prev => ({
-          ...prev,
-          courses: coursesData.courses,
-          loading: false
-        }));
-      } catch (error) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: error instanceof ApiError ? error.message : 'Error al cargar los cursos'
-        }));
+        const ins = await inscripcionesApi.list();
+        const ids = ins.map(i => i.numeroInscripcion).filter(Boolean);
+        let counts: Record<string, number> = {};
+        try {
+          counts = await participantesApi.counts(ids as string[]);
+        } catch (e) {
+          // Si falla el conteo, continuamos usando los valores locales
+          counts = {};
+        }
+        setState(prev => ({ ...prev, inscripciones: ins, participantCounts: counts, loading: false }));
+      } catch (error: any) {
+        setState(prev => ({ ...prev, loading: false, error: error?.message || 'Error al cargar inscripciones' }));
       }
     };
-
-    loadCourses();
+    load();
   }, []);
 
-  // Helper function to calculate remaining days
-  const calculateRemainingDays = (endDate: number): number | null => {
-    // Return null for courses without end date
-    if (!endDate || endDate === 0) {
-      return null;
-    }
-    
-    const today = new Date();
-    const end = new Date(endDate * 1000);
-    const diffTime = end.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, diffDays);
+  // Cálculo: (termino - inicio) en días, según requerimiento
+  const calculateDaysBetween = (inicio?: string, termino?: string): number | null => {
+    if (!inicio || !termino) return null;
+    const start = new Date(inicio).getTime();
+    const end = new Date(termino).getTime();
+    if (!isFinite(start) || !isFinite(end)) return null;
+    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return diffDays < 0 ? 0 : diffDays;
   };
 
-  // Helper function to format date
-  const formatDate = (timestamp: number): string => {
-    return apiService.formatDate(timestamp);
-  };
+  const formatISODate = (value?: string): string => (value ? new Date(value).toLocaleDateString('es-CL') : '');
 
   return (
-    <div className="bg-white rounded-lg shadow-sm max-w-[1000px]">
+    <div className="bg-white rounded-lg shadow-sm w-full max-w-[1150px] mx-auto">
       <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800">Calendario de Cursos Activos</h2>
+        <h2 className="text-lg font-semibold text-gray-800">Inscripciones de Cursos Activos</h2>
       </div>
       
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-blue-600 text-white">
             <tr>
-              <th className="px-4 py-3 text-left text-sm font-medium">No. Ficha</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">No. Inscripción</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Moodle ID</th>
+              <th className="px-4 py-3 text-left text-sm font-medium">Correlativo</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Curso</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">Fecha de Inicio</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">Fecha de Cierre</th>
+              <th className="px-4 py-3 text-left text-sm font-medium min-w-[140px]">Fecha de Inicio</th>
+              <th className="px-4 py-3 text-left text-sm font-medium min-w-[140px]">Fecha de Cierre</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Días Restantes</th>
               <th className="px-4 py-3 text-left text-sm font-medium">Total Alumnos</th>
             </tr>
@@ -80,51 +75,50 @@ const CourseTable: React.FC = () => {
           <tbody className="divide-y divide-gray-200">
             {state.loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   <div className="flex items-center justify-center space-x-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    <span>Cargando cursos...</span>
+                    <span>Cargando inscripciones...</span>
                   </div>
                 </td>
               </tr>
             ) : state.error ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-red-600">
+                <td colSpan={8} className="px-4 py-8 text-center text-red-600">
                   <div className="flex flex-col items-center space-y-2">
-                    <span>❌ Error al cargar los cursos</span>
+                    <span>❌ Error al cargar las inscripciones</span>
                     <span className="text-sm text-gray-500">{state.error}</span>
                   </div>
                 </td>
               </tr>
-            ) : state.courses.length === 0 ? (
+            ) : state.inscripciones.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
-                  No hay cursos disponibles en esta categoría
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                  No hay inscripciones disponibles
                 </td>
               </tr>
             ) : (
-              state.courses.map((course, index) => {
-                const remainingDays = calculateRemainingDays(course.enddate);
+              state.inscripciones.map((insc, index) => {
+                const days = calculateDaysBetween(insc.inicio, insc.termino);
+                const totalAlumnos = state.participantCounts[insc.numeroInscripcion] ?? insc.numAlumnosInscritos;
                 return (
-                  <tr key={course.id || index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">{course.id}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{course.fullname}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(course.startdate)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatDate(course.enddate)}</td>
+                  <tr key={insc._id || insc.numeroInscripcion || index} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900">{insc.numeroInscripcion}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{insc.idMoodle || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{insc.correlativo ?? '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 max-w-[300px] truncate" title={insc.nombreCurso || ""}>{insc.nombreCurso || "-"}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap min-w-[140px]">{formatISODate(insc.inicio)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap min-w-[140px]">{formatISODate(insc.termino)}</td>
                     <td className="px-4 py-3 text-sm text-gray-600">
-                      {remainingDays !== null ? (
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          remainingDays <= 7 ? 'bg-red-100 text-red-800' :
-                          remainingDays <= 30 ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {remainingDays} días
+                      {days !== null ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {days} días
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-xs">Sin fecha límite</span>
+                        <span className="text-gray-400 text-xs">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">{course.students}</td>
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">{totalAlumnos}</td>
                   </tr>
                 );
               })
@@ -136,13 +130,7 @@ const CourseTable: React.FC = () => {
       {/* Footer with course count */}
       <div className="px-6 py-4 border-t border-gray-200">
         <div className="text-sm text-gray-500">
-          {state.loading ? (
-            'Cargando...'
-          ) : state.error ? (
-            'Error al cargar datos'
-          ) : (
-            `Mostrando ${state.courses.length} cursos activos`
-          )}
+          {state.loading ? 'Cargando...' : state.error ? 'Error al cargar datos' : `Mostrando ${state.inscripciones.length} inscripciones`}
         </div>
       </div>
     </div>

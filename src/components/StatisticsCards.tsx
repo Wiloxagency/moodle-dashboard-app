@@ -61,7 +61,7 @@ const StatisticsCards: React.FC = () => {
   );
 
   return (
-    <div className="space-y-6 max-w-[1000px]">
+    <div className="space-y-6 w-full">
       {/* Total Participantes Section */}
       <div>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Total Participantes</h2>
