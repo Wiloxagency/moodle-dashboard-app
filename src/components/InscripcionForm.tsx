@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
 import { type Inscripcion } from '../services/inscripciones';
+import { modalidadesApi, type Modalidad } from '../services/modalidades';
+import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
 
 interface Props {
   initial?: Partial<Inscripcion>;
@@ -34,12 +36,35 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [modalidades, setModalidades] = useState<Modalidad[]>([]);
+  const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
 
   const isEditing = Boolean(initial && (initial as any)._id);
 
   useEffect(() => {
     setForm({ ...empty, ...(initial as any) });
   }, [initial]);
+
+  // Cargar listas para los selects de Modalidad y Ejecutivo al abrir el formulario
+  useEffect(() => {
+    let mounted = true;
+    const loadOptions = async () => {
+      try {
+        const [mods, ejs] = await Promise.all([
+          modalidadesApi.list(),
+          ejecutivosApi.list(),
+        ]);
+        if (!mounted) return;
+        setModalidades(mods);
+        // Por defecto usamos solo ejecutivos activos si existe ese status
+        setEjecutivos(ejs.filter(e => !e.status || e.status.toLowerCase() === 'activo'));
+      } catch (err) {
+        console.error('Error cargando modalidades/ejecutivos para el formulario de inscripción', err);
+      }
+    };
+    loadOptions();
+    return () => { mounted = false; };
+  }, []);
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -119,9 +144,41 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Modalidad <span className="text-red-500">*</span></label>
-          <select name="modalidad" required value={form.modalidad} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
-            <option value="e-learning">e-learning</option>
-            <option value="sincrónico">sincrónico</option>
+          <select
+            name="modalidad"
+            required
+            value={form.modalidad || ''}
+            onChange={change}
+            className="mt-1 w-full border rounded px-3 py-2"
+          >
+            <option value="">Seleccione modalidad...</option>
+            {modalidades.map(m => {
+              const labels: string[] = [];
+              if (m.sincronico) labels.push('Sincrónico');
+              if (m.asincronico) labels.push('Asincrónico');
+              if (m.sincronico_online) labels.push('Sincrónico On-line');
+              if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
+              if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
+              const label = labels.join(' | ') || `Modalidad ${m.code}`;
+              return (
+                <option key={m._id || m.code} value={label}>
+                  {label}
+                </option>
+              );
+            })}
+            {/* Si estamos editando un registro antiguo cuyo valor no está en la lista, lo mostramos igual */}
+            {form.modalidad && !modalidades.some(m => {
+              const labels: string[] = [];
+              if (m.sincronico) labels.push('Sincrónico');
+              if (m.asincronico) labels.push('Asincrónico');
+              if (m.sincronico_online) labels.push('Sincrónico On-line');
+              if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
+              if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
+              const label = labels.join(' | ') || `Modalidad ${m.code}`;
+              return label === form.modalidad;
+            }) && (
+              <option value={form.modalidad}>{form.modalidad} (actual)</option>
+            )}
           </select>
         </div>
         <div>
@@ -135,7 +192,30 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Ejecutivo <span className="text-red-500">*</span></label>
-          <input name="ejecutivo" value={form.ejecutivo} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+          <select
+            name="ejecutivo"
+            required
+            value={form.ejecutivo || ''}
+            onChange={change}
+            className="mt-1 w-full border rounded px-3 py-2"
+          >
+            <option value="">Seleccione ejecutivo...</option>
+            {ejecutivos.map(e => {
+              const label = `${e.code != null ? `${e.code} - ` : ''}${e.nombres} ${e.apellidos}`.trim();
+              return (
+                <option key={e._id || e.code} value={label}>
+                  {label}
+                </option>
+              );
+            })}
+            {/* Igual que con modalidad, conservamos el valor actual si no está en la lista */}
+            {form.ejecutivo && !ejecutivos.some(e => {
+              const label = `${e.code != null ? `${e.code} - ` : ''}${e.nombres} ${e.apellidos}`.trim();
+              return label === form.ejecutivo;
+            }) && (
+              <option value={form.ejecutivo}>{form.ejecutivo} (actual)</option>
+            )}
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Num Alumnos Inscritos <span className="text-red-500">*</span></label>

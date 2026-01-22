@@ -4,7 +4,6 @@ import Dashboard from './pages/Dashboard';
 import Inscripciones from './pages/Inscripciones';
 import Participantes from './pages/Participantes';
 import EmpresasPage from './pages/Empresas';
-import SencePage from './pages/Sence';
 import ModalidadPage from './pages/Modalidad';
 import EjecutivosPage from './pages/Ejecutivos';
 import LoginPage from './pages/Login';
@@ -40,14 +39,6 @@ function App() {
           element={
             <ProtectedRoute>
               <Inscripciones />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/sence"
-          element={
-            <ProtectedRoute>
-              <SencePage />
             </ProtectedRoute>
           }
         />
