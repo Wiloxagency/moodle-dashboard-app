@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import config from '../config/environment';
+import * as XLSX from 'xlsx';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronUp, ChevronDown, ArrowUpDown, Loader2, Plus, RotateCw } from 'lucide-react';
 import { participantesApi, type Participante } from '../services/participantes';
@@ -36,6 +37,7 @@ const ParticipantesPage: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Participante | null>(null);
   const [importing, setImporting] = useState(false);
+  const [excelImporting, setExcelImporting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
@@ -43,6 +45,8 @@ const ParticipantesPage: React.FC = () => {
   const [reportUpdatedAt, setReportUpdatedAt] = useState<string | null>(null);
   const [reportData, setReportData] = useState<{ passed: any[]; failed: any[] } | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
     try {
@@ -101,6 +105,99 @@ const ParticipantesPage: React.FC = () => {
       setNotice(e?.message || "Error importando desde Moodle");
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleImportFromExcelClick = () => {
+    if (excelImporting) return;
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleExcelFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setExcelImporting(true);
+      setNotice(null);
+
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      const byRut = new Map<string, Participante>();
+      for (const p of data) {
+        if (p.rut) {
+          byRut.set(normalizeRut(p.rut), p);
+        }
+      }
+
+      let processed = 0;
+
+      for (const row of rows) {
+        const rutCell = row.Rut || row.RUT || row.rut || row['Rut Alumno'] || row['rut alumno'];
+        if (!rutCell) continue;
+
+        const rut = String(rutCell).trim();
+        if (!rut) continue;
+
+        const rutKey = normalizeRut(rut);
+        const existing = byRut.get(rutKey);
+
+        const base: Participante = existing || {
+          _id: undefined,
+          numeroInscripcion: numeroInscripcion,
+          nombres: '',
+          apellidos: '',
+          rut,
+          mail: '',
+          telefono: undefined,
+          franquiciaPorcentaje: undefined,
+          costoOtic: undefined,
+          costoEmpresa: undefined,
+          estadoInscripcion: undefined,
+          observacion: undefined,
+        };
+
+        const nombresVal = row.Nombres ?? row.NOMBRES ?? row.nombres ?? base.nombres;
+        const apellidosVal = row.Apellidos ?? row.APELLIDOS ?? row.apellidos ?? base.apellidos;
+        const mailVal = row.Mail ?? row.MAIL ?? row.mail ?? base.mail;
+        const telefonoVal = row.Telefono ?? row['Teléfono'] ?? row.telefono ?? base.telefono;
+        const estadoVal = row['Estado inscripción'] ?? row.estadoInscripcion ?? base.estadoInscripcion;
+        const obsVal = row.Observacion ?? row.OBSERVACION ?? row.observacion ?? base.observacion;
+
+        const updated: Participante = {
+          ...base,
+          rut,
+          numeroInscripcion,
+          nombres: nombresVal ? String(nombresVal) : '',
+          apellidos: apellidosVal ? String(apellidosVal) : '',
+          mail: mailVal ? String(mailVal) : '',
+          telefono: telefonoVal ? String(telefonoVal) : undefined,
+          estadoInscripcion: estadoVal ? String(estadoVal) : undefined,
+          observacion: obsVal ? String(obsVal) : undefined,
+        };
+
+        byRut.set(rutKey, updated);
+        processed++;
+      }
+
+      const updatedList = Array.from(byRut.values());
+      setData(updatedList);
+      setNotice(`Importación desde Excel completa: procesadas ${processed} filas. Total participantes en la inscripción: ${updatedList.length}.`);
+    } catch (e:any) {
+      console.error(e);
+      setNotice(e?.message || 'Error importando desde Excel');
+    } finally {
+      setExcelImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -345,11 +442,26 @@ const requestSort = (key: SortKey) => {
                     {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                     Cargar desde Moodle
                   </button>
+                  <button 
+                    onClick={handleImportFromExcelClick}
+                    disabled={excelImporting}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {excelImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Cargar desde Excel
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".xlsx,.csv"
+                    onChange={handleExcelFileChange}
+                    className="hidden"
+                  />
                   <Link 
                     to="/inscripciones" 
                     className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
                   >
-                    ← Volver a Inscripciones
+                    Volver a Inscripciones
                   </Link>
                 </div>
               </div>
