@@ -3,7 +3,7 @@ import config from '../config/environment';
 export interface Inscripcion {
   _id?: string;
   // Autogenerado por el API
-  numeroInscripcion: string;
+  numeroInscripcion: number;
 
   // Nuevos obligatorios
   correlativo: number;

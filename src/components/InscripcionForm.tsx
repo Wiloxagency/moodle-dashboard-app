@@ -12,7 +12,7 @@ interface Props {
 }
 
 const empty: Inscripcion = {
-  numeroInscripcion: '', // autogenerado
+  numeroInscripcion: 0, // autogenerado (numeric)
   correlativo: 0,
   codigoCurso: '',
   empresa: 'Mutual',
@@ -32,6 +32,30 @@ const empty: Inscripcion = {
   comentarios: undefined,
 };
 
+const toDisplayDate = (iso: string | undefined) => {
+  if (!iso) return '';
+  try {
+      const parts = iso.substring(0, 10).split('-');
+      if (parts.length < 3) return '';
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
+  } catch { return ''; }
+};
+
+const toISODate = (display: string) => {
+  const parts = display.split('/');
+  if (parts.length !== 3) return null;
+  const d = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const y = parseInt(parts[2], 10);
+  if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+  if (d < 1 || d > 31 || m < 1 || m > 12) return null;
+  const dd = String(d).padStart(2, '0');
+  const mm = String(m).padStart(2, '0');
+  const yy = String(y);
+  return `${yy}-${mm}-${dd}T00:00:00.000Z`;
+};
+
 const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete }) => {
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
@@ -39,13 +63,19 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
   const [modalidades, setModalidades] = useState<Modalidad[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
 
+  // Local state for date inputs
+  const [inicioStr, setInicioStr] = useState('');
+  const [terminoStr, setTerminoStr] = useState('');
+
   const isEditing = Boolean(initial && (initial as any)._id);
 
   useEffect(() => {
-    setForm({ ...empty, ...(initial as any) });
+    const newState = { ...empty, ...(initial as any) };
+    setForm(newState);
+    setInicioStr(toDisplayDate(newState.inicio));
+    setTerminoStr(toDisplayDate(newState.termino));
   }, [initial]);
 
-  // Cargar listas para los selects de Modalidad y Ejecutivo al abrir el formulario
   useEffect(() => {
     let mounted = true;
     const loadOptions = async () => {
@@ -56,7 +86,6 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         ]);
         if (!mounted) return;
         setModalidades(mods);
-        // Por defecto usamos solo ejecutivos activos si existe ese status
         setEjecutivos(ejs.filter(e => !e.status || e.status.toLowerCase() === 'activo'));
       } catch (err) {
         console.error('Error cargando modalidades/ejecutivos para el formulario de inscripción', err);
@@ -75,11 +104,29 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
     }));
   };
 
+  const handleDateChange = (field: 'inicio' | 'termino', val: string) => {
+      // Allow numbers and slashes only
+      if (!/^[\d\/]*$/.test(val)) return;
+      if (val.length > 10) return;
+
+      if (field === 'inicio') setInicioStr(val);
+      else setTerminoStr(val);
+
+      // Validate format dd/mm/yyyy
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+          const iso = toISODate(val);
+          if (iso) {
+              setForm(prev => ({ ...prev, [field]: iso }));
+          }
+      } else if (val === '') {
+          setForm(prev => ({ ...prev, [field]: undefined }));
+      }
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      // No enviar numeroInscripcion vacío; el API lo autogenera
       const payload: any = { ...form };
       if (payload._id) delete payload._id;
       if (!payload.numeroInscripcion) delete payload.numeroInscripcion;
@@ -105,7 +152,14 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">N° Inscripción</label>
-          <input name="numeroInscripcion" value={form.numeroInscripcion || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" placeholder="Se genera al guardar" disabled />
+          <input 
+            name="numeroInscripcion" 
+            value={form.numeroInscripcion || ''} 
+            onChange={change} 
+            className="mt-1 w-full border rounded px-3 py-2" 
+            placeholder="Se genera al guardar" 
+            disabled 
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">N° Correlativo <span className="text-red-500">*</span></label>
@@ -166,7 +220,6 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
                 </option>
               );
             })}
-            {/* Si estamos editando un registro antiguo cuyo valor no está en la lista, lo mostramos igual */}
             {form.modalidad && !modalidades.some(m => {
               const labels: string[] = [];
               if (m.sincronico) labels.push('Sincrónico');
@@ -183,11 +236,24 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Fecha de Inicio <span className="text-red-500">*</span></label>
-          <input type="date" name="inicio" value={form.inicio ? form.inicio.substring(0,10) : ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+          <input 
+            type="text" 
+            placeholder="dd/mm/yyyy"
+            value={inicioStr} 
+            onChange={(e) => handleDateChange('inicio', e.target.value)} 
+            required 
+            className="mt-1 w-full border rounded px-3 py-2" 
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Fecha Final</label>
-          <input type="date" name="termino" value={form.termino ? String(form.termino).substring(0,10) : ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+          <input 
+            type="text" 
+            placeholder="dd/mm/yyyy"
+            value={terminoStr} 
+            onChange={(e) => handleDateChange('termino', e.target.value)} 
+            className="mt-1 w-full border rounded px-3 py-2" 
+          />
         </div>
 
         <div>
@@ -208,7 +274,6 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
                 </option>
               );
             })}
-            {/* Igual que con modalidad, conservamos el valor actual si no está en la lista */}
             {form.ejecutivo && !ejecutivos.some(e => {
               const label = `${e.code != null ? `${e.code} - ` : ''}${e.nombres} ${e.apellidos}`.trim();
               return label === form.ejecutivo;

@@ -56,13 +56,13 @@ const Inscripciones: React.FC = () => {
 
   const openForNew = () => {
     // Calcular el número de inscripción siguiente en base a los datos actuales
-    const usedNumbers = new Set<string>();
+    const usedNumbers = new Set<number>();
     let maxNumero = 0;
 
     for (const ins of data) {
       if (!ins.numeroInscripcion) continue;
-      usedNumbers.add(ins.numeroInscripcion);
-      const n = parseInt(ins.numeroInscripcion, 10);
+      usedNumbers.add(Number(ins.numeroInscripcion));
+      const n = Number(ins.numeroInscripcion);
       if (!Number.isNaN(n) && n > maxNumero) {
         maxNumero = n;
       }
@@ -72,11 +72,11 @@ const Inscripciones: React.FC = () => {
     let next = maxNumero > 0 ? maxNumero + 1 : 100000;
 
     // Evitar duplicados por seguridad
-    while (usedNumbers.has(String(next))) {
+    while (usedNumbers.has(next)) {
       next++;
     }
 
-    setEditing({ numeroInscripcion: String(next) });
+    setEditing({ numeroInscripcion: next });
     setShowForm(true);
   };
 

@@ -2,7 +2,7 @@ import config from '../config/environment';
 
 export interface Participante {
   _id?: string;
-  numeroInscripcion: string;
+  numeroInscripcion: number;
   nombres: string;
   apellidos: string;
   rut: string;
@@ -20,7 +20,7 @@ interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string
 const BASE = `${config.apiBaseUrl}/participantes`;
 
 export const participantesApi = {
-  async listByInscripcion(numeroInscripcion: string): Promise<Participante[]> {
+  async listByInscripcion(numeroInscripcion: number): Promise<Participante[]> {
     const url = `${BASE}?numeroInscripcion=${encodeURIComponent(numeroInscripcion)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Error fetching participantes');
@@ -28,7 +28,7 @@ export const participantesApi = {
     if (!json.success) throw new Error(json.error?.message || 'API error');
     return json.data || [];
   },
-  async counts(inscripciones?: string[]): Promise<Record<string, number>> {
+  async counts(inscripciones?: number[]): Promise<Record<string, number>> {
     const url = inscripciones && inscripciones.length > 0 
       ? `${BASE}/counts?inscripciones=${encodeURIComponent(inscripciones.join(','))}`
       : `${BASE}/counts`;
