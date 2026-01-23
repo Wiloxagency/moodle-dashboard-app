@@ -20,6 +20,7 @@ type SortKey =
 
 const ParticipantesPage: React.FC = () => {
   const { numeroInscripcion = '' } = useParams();
+  const numeroInscripcionNum = Number(numeroInscripcion);
   const [data, setData] = useState<Participante[]>([]);
   const normalizeRut = (v?: string) => (v || "").replace(/[.\-]/g, "").toLowerCase();
 
@@ -51,7 +52,7 @@ const ParticipantesPage: React.FC = () => {
   const load = async () => {
     try {
       setLoading(true);
-      const items = await participantesApi.listByInscripcion(numeroInscripcion);
+      const items = await participantesApi.listByInscripcion(numeroInscripcionNum);
       setData(items);
     } finally {
       setLoading(false);
@@ -130,12 +131,8 @@ const ParticipantesPage: React.FC = () => {
       const worksheet = workbook.Sheets[sheetName];
       const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
+      // Usamos solo lo que viene en el Excel: reemplaza completamente la tabla
       const byRut = new Map<string, Participante>();
-      for (const p of data) {
-        if (p.rut) {
-          byRut.set(normalizeRut(p.rut), p);
-        }
-      }
 
       let processed = 0;
 
@@ -151,7 +148,7 @@ const ParticipantesPage: React.FC = () => {
 
         const base: Participante = existing || {
           _id: undefined,
-          numeroInscripcion: numeroInscripcion,
+          numeroInscripcion: numeroInscripcionNum,
           nombres: '',
           apellidos: '',
           rut,
@@ -167,18 +164,24 @@ const ParticipantesPage: React.FC = () => {
         const nombresVal = row.Nombres ?? row.NOMBRES ?? row.nombres ?? base.nombres;
         const apellidosVal = row.Apellidos ?? row.APELLIDOS ?? row.apellidos ?? base.apellidos;
         const mailVal = row.Mail ?? row.MAIL ?? row.mail ?? base.mail;
-        const telefonoVal = row.Telefono ?? row['Teléfono'] ?? row.telefono ?? base.telefono;
+        const telefonoVal = row.Telefono ?? row['Teléfono'] ?? row['Télefono'] ?? row.telefono ?? base.telefono;
+        const franquiciaVal = row['%Franquisia'] ?? row['% Franquisia'] ?? row['% Franquicia'] ?? base.franquiciaPorcentaje;
+        const costoEmpresaVal = row['Costo empresa'] ?? row['Costo Empresa'] ?? base.costoEmpresa;
+        const costoOticVal = row['Costo OTIC'] ?? row['Costo Otic'] ?? base.costoOtic;
         const estadoVal = row['Estado inscripción'] ?? row.estadoInscripcion ?? base.estadoInscripcion;
         const obsVal = row.Observacion ?? row.OBSERVACION ?? row.observacion ?? base.observacion;
 
         const updated: Participante = {
           ...base,
           rut,
-          numeroInscripcion,
+          numeroInscripcion: numeroInscripcionNum,
           nombres: nombresVal ? String(nombresVal) : '',
           apellidos: apellidosVal ? String(apellidosVal) : '',
           mail: mailVal ? String(mailVal) : '',
           telefono: telefonoVal ? String(telefonoVal) : undefined,
+          franquiciaPorcentaje: franquiciaVal !== undefined && franquiciaVal !== '' ? Number(franquiciaVal) : base.franquiciaPorcentaje,
+          costoEmpresa: costoEmpresaVal !== undefined && costoEmpresaVal !== '' ? Number(costoEmpresaVal) : base.costoEmpresa,
+          costoOtic: costoOticVal !== undefined && costoOticVal !== '' ? Number(costoOticVal) : base.costoOtic,
           estadoInscripcion: estadoVal ? String(estadoVal) : undefined,
           observacion: obsVal ? String(obsVal) : undefined,
         };
@@ -188,6 +191,9 @@ const ParticipantesPage: React.FC = () => {
       }
 
       const updatedList = Array.from(byRut.values());
+      // Refrescar inmediatamente la UI con lo leído del Excel
+      setData(updatedList);
+
       // Persistir en backend mediante bulk upsert
       try {
         const payload = updatedList.map(p => ({

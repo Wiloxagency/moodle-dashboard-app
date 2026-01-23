@@ -4,18 +4,14 @@ const StatisticsCards: React.FC = () => {
   // Data based on the image
   const totalParticipants = {
     becados: { count: 142, percentage: 63 },
-    empresa: { count: 22, percentage: 10 },
-    sence: { count: 23, percentage: 10 },
-    senceEmpresa: { count: 39, percentage: 17 },
-    total: 226
+    empresa: { count: 61, percentage: 27 },
+    total: 203,
   };
 
   const zeroAdvanceParticipants = {
-    becados: { count: 105, percentage: 69 },
-    empresa: { count: 22, percentage: 14 },
-    sence: { count: 13, percentage: 8 },
-    senceEmpresa: { count: 12, percentage: 8 },
-    total: 152
+    becados: { count: 105, percentage: 78 },
+    empresa: { count: 30, percentage: 22 },
+    total: 135,
   };
 
   const StatCard = ({ 
@@ -65,7 +61,7 @@ const StatisticsCards: React.FC = () => {
       {/* Total Participantes Section */}
       <div>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Total Participantes</h2>
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <StatCard
             title="Becados"
             count={totalParticipants.becados.count}
@@ -79,18 +75,6 @@ const StatisticsCards: React.FC = () => {
             bgColor="bg-green-600"
           />
           <StatCard
-            title="Sence"
-            count={totalParticipants.sence.count}
-            percentage={totalParticipants.sence.percentage}
-            bgColor="bg-orange-500"
-          />
-          <StatCard
-            title="Sence Empresa"
-            count={totalParticipants.senceEmpresa.count}
-            percentage={totalParticipants.senceEmpresa.percentage}
-            bgColor="bg-purple-500"
-          />
-          <StatCard
             title="Total Alumnos"
             count={totalParticipants.total}
             bgColor="bg-gray-800"
@@ -102,7 +86,7 @@ const StatisticsCards: React.FC = () => {
       {/* Participantes con 0% de Avance Section */}
       <div>
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Participantes con 0% de Avance</h2>
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <StatCard
             title="Becados"
             count={zeroAdvanceParticipants.becados.count}
@@ -114,18 +98,6 @@ const StatisticsCards: React.FC = () => {
             count={zeroAdvanceParticipants.empresa.count}
             percentage={zeroAdvanceParticipants.empresa.percentage}
             bgColor="bg-green-600"
-          />
-          <StatCard
-            title="Sence"
-            count={zeroAdvanceParticipants.sence.count}
-            percentage={zeroAdvanceParticipants.sence.percentage}
-            bgColor="bg-orange-500"
-          />
-          <StatCard
-            title="Sence Empresa"
-            count={zeroAdvanceParticipants.senceEmpresa.count}
-            percentage={zeroAdvanceParticipants.senceEmpresa.percentage}
-            bgColor="bg-purple-500"
           />
           <StatCard
             title="Alumnos 0% Avance"

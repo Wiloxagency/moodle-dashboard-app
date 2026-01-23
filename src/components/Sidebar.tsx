@@ -110,8 +110,6 @@ const Sidebar: React.FC = () => {
       <FilterSection title="Centro de Costo">
         <Checkbox label="Becado" checked={true} />
         <Checkbox label="Empresa" checked={true} />
-        <Checkbox label="Sence" />
-        <Checkbox label="Sence / Empresa" />
       </FilterSection>
 
       {/* Estado del Curso */}

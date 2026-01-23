@@ -66,7 +66,8 @@ const EmpresasPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="p-6">
           {error && <p className="text-red-600 mb-2 text-sm">{error}</p>}
-          <EmpresaTable data={data} onNew={handleNew} onEdit={handleEdit} />
+          {loading && <p className="text-gray-500 mb-2 text-sm">Cargando empresas...</p>}
+          <EmpresaTable data={data as any} onNew={handleNew} onEdit={handleEdit as any} />
         </div>
       </div>
 

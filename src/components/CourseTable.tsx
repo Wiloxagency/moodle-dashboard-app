@@ -24,10 +24,12 @@ const CourseTable: React.FC = () => {
       try {
         setState(prev => ({ ...prev, loading: true, error: null }));
         const ins = await inscripcionesApi.list();
-        const ids = ins.map(i => i.numeroInscripcion).filter(Boolean);
+        const ids = ins
+          .map(i => i.numeroInscripcion)
+          .filter((n): n is number => n !== null && n !== undefined);
         let counts: Record<string, number> = {};
         try {
-          counts = await participantesApi.counts(ids as string[]);
+          counts = await participantesApi.counts(ids);
         } catch (e) {
           // Si falla el conteo, continuamos usando los valores locales
           counts = {};

@@ -267,7 +267,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
           >
             <option value="">Seleccione ejecutivo...</option>
             {ejecutivos.map(e => {
-              const label = `${e.code != null ? `${e.code} - ` : ''}${e.nombres} ${e.apellidos}`.trim();
+              const label = `${e.nombres} ${e.apellidos}`.trim();
               return (
                 <option key={e._id || e.code} value={label}>
                   {label}
@@ -275,7 +275,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
               );
             })}
             {form.ejecutivo && !ejecutivos.some(e => {
-              const label = `${e.code != null ? `${e.code} - ` : ''}${e.nombres} ${e.apellidos}`.trim();
+              const label = `${e.nombres} ${e.apellidos}`.trim();
               return label === form.ejecutivo;
             }) && (
               <option value={form.ejecutivo}>{form.ejecutivo} (actual)</option>

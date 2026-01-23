@@ -61,7 +61,7 @@ const ModalidadPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="p-6">
           {error && <p className="text-red-600 mb-2 text-sm">{error}</p>}
-          <ModalidadTable data={data} onNew={handleNew} onEdit={handleEdit} />
+          <ModalidadTable data={data} onNew={handleNew} onEdit={handleEdit as any} />
         </div>
       </div>
 

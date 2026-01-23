@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Sheet, LogOut, User, Home, Users, Building2, FileText as FileIcon, Waypoints, UserCircle2 } from 'lucide-react';
+import { FileText, Sheet, LogOut, User, Home, Users, Building2, Waypoints, UserCircle2 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 

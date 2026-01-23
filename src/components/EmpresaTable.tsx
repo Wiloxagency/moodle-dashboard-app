@@ -43,9 +43,9 @@ const EmpresaTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
       (r.nombre || '').toLowerCase().includes(q) ||
       (r.holding || '').toLowerCase().includes(q) ||
       (r.rut || '').toLowerCase().includes(q) ||
-      (r.nombreResponsable || '').toLowerCase().includes(q) ||
-      (r.emailResponsable || '').toLowerCase().includes(q) ||
-      (r.emailEmpresa || '').toLowerCase().includes(q)
+      (r.nombre_responsable || '').toLowerCase().includes(q) ||
+      (r.email_responsable || '').toLowerCase().includes(q) ||
+      (r.email_empresa || '').toLowerCase().includes(q)
     );
   }, [data, filter]);
 
@@ -115,7 +115,7 @@ const EmpresaTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombre')}>Nombre <SortIcon col="nombre" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('holding')}>Holding <SortIcon col="holding" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('rut')}>RUT <SortIcon col="rut" /></th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombreResponsable')}>Responsable <SortIcon col="nombreResponsable" /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombre_responsable')}>Responsable <SortIcon col="nombre_responsable" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email Responsable</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfonos</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email Empresa</th>

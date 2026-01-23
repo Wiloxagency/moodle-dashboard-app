@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import type { EjecutivoFormData } from './EjecutivoForm';
+import type { Ejecutivo } from '../services/ejecutivos';
 
 interface Props {
-  data: EjecutivoFormData[];
+  data: Ejecutivo[];
   onNew?: () => void;
-  onEdit?: (item: EjecutivoFormData, index: number) => void;
+  onEdit?: (item: Ejecutivo, index: number) => void;
 }
 
 type SortKey =
@@ -107,7 +107,6 @@ const EjecutivoTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
           <table className="w-full">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('code')}>Code <SortIcon col="code" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombres')}>Nombres <SortIcon col="nombres" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('apellidos')}>Apellidos <SortIcon col="apellidos" /></th>
@@ -127,7 +126,6 @@ const EjecutivoTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => onEdit && onEdit(r, rowNumber - 1)}
                   >
-                    <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{(r as any).code ?? '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.nombres}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.apellidos}</td>

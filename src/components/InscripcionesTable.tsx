@@ -83,8 +83,8 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
     if (!filter.trim()) return data;
     const q = filter.toLowerCase();
     return data.filter(r =>
-      (r.numeroInscripcion || '').toLowerCase().includes(q) ||
-      (String(r.correlativo || '')).toLowerCase().includes(q) ||
+      String(r.numeroInscripcion || '').toLowerCase().includes(q) ||
+      String(r.correlativo || '').toLowerCase().includes(q) ||
       (r.codigoCurso || '').toLowerCase().includes(q) ||
       (r.codigoSence || '').toLowerCase().includes(q) ||
       (r.empresa || '').toLowerCase().includes(q) ||

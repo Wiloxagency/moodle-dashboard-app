@@ -11,7 +11,7 @@ interface Props {
 }
 
 const empty: Omit<Participante, '_id'> = {
-  numeroInscripcion: '',
+  numeroInscripcion: 0,
   nombres: '',
   apellidos: '',
   rut: '',
@@ -27,7 +27,7 @@ const empty: Omit<Participante, '_id'> = {
 const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCancel, onSave, onDelete }) => {
   const [form, setForm] = useState<Participante>({ 
     ...empty, 
-    numeroInscripcion,
+    numeroInscripcion: Number(numeroInscripcion),
     ...(initial as any) 
   });
   const [saving, setSaving] = useState(false);
@@ -38,7 +38,7 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
   useEffect(() => {
     setForm({ 
       ...empty, 
-      numeroInscripcion,
+      numeroInscripcion: Number(numeroInscripcion),
       ...(initial as any) 
     });
   }, [initial, numeroInscripcion]);

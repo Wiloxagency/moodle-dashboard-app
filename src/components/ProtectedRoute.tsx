@@ -4,7 +4,7 @@ import type { Role } from '../types/auth';
 import { useAuth } from '../context/AuthContext';
 
 interface ProtectedRouteProps {
-  children: JSX.Element;
+  children: React.ReactNode;
   requiredRole?: Role;
 }
 

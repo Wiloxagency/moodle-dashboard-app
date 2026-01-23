@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import type { ModalidadFormData } from './ModalidadForm';
+import type { Modalidad } from '../services/modalidades';
 
 interface Props {
-  data: ModalidadFormData[];
+  data: Modalidad[];
   onNew?: () => void;
-  onEdit?: (item: ModalidadFormData, index: number) => void;
+  onEdit?: (item: Modalidad, index: number) => void;
 }
 
 // aquí simplemente listamos una fila por combinación de modalidades
@@ -21,13 +21,13 @@ const ModalidadTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
   const end = Math.min(start + perPage, total);
   const pageRows = sorted.slice(start, end);
 
-  const getLabels = (m: ModalidadFormData) => {
+  const getLabels = (m: Modalidad) => {
     const labels: string[] = [];
     if (m.sincronico) labels.push('Sincrónico');
     if (m.asincronico) labels.push('Asincrónico');
-    if (m.sincronicoOnline) labels.push('Sincrónico On-line');
-    if (m.sincronicoPresencialMoodle) labels.push('Sincrónico Presencial Moodle');
-    if (m.sincronicoPresencialNoMoodle) labels.push('Sincrónico Presencial No-Moodle');
+    if (m.sincronico_online) labels.push('Sincrónico On-line');
+    if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
+    if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
     return labels.join(' | ') || '-';
   };
 
@@ -61,7 +61,6 @@ const ModalidadTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
           <table className="w-full">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Configuración de Modalidad</th>
               </tr>
@@ -75,7 +74,6 @@ const ModalidadTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => onEdit && onEdit(r, rowNumber - 1)}
                   >
-                    <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{(r as any).code ?? '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{getLabels(r)}</td>
                   </tr>
