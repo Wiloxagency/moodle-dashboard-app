@@ -17,6 +17,7 @@ const empty: Omit<Participante, '_id'> = {
   rut: '',
   mail: '',
   telefono: '',
+  valorCobrado: undefined,
   franquiciaPorcentaje: undefined,
   costoOtic: undefined,
   costoEmpresa: undefined,
@@ -47,7 +48,7 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
     const { name, value } = e.target;
     setForm((f) => ({ 
       ...f, 
-      [name]: name === 'franquiciaPorcentaje' || name === 'costoOtic' || name === 'costoEmpresa'
+      [name]: name === 'franquiciaPorcentaje' || name === 'valorCobrado' || name === 'costoOtic' || name === 'costoEmpresa'
         ? (value === '' ? undefined : Number(value))
         : value 
     }));
@@ -142,17 +143,32 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700">% Franquicia</label>
+          <label className="block text-sm font-medium text-gray-700">Valor Cobrado</label>
           <input 
             type="number"
-            name="franquiciaPorcentaje" 
-            value={form.franquiciaPorcentaje ?? ''} 
+            name="valorCobrado" 
+            value={form.valorCobrado ?? ''} 
             onChange={change} 
             min="0"
-            max="100"
             className="mt-1 w-full border rounded px-3 py-2" 
-            placeholder="0-100"
+            placeholder="0"
           />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700">% Franquicia</label>
+          <select 
+            name="franquiciaPorcentaje" 
+            value={form.franquiciaPorcentaje != null ? String(form.franquiciaPorcentaje) : ''} 
+            onChange={change} 
+            className="mt-1 w-full border rounded px-3 py-2"
+          >
+            <option value="">Seleccione...</option>
+            <option value="0">0%</option>
+            <option value="15">15%</option>
+            <option value="50">50%</option>
+            <option value="100">100%</option>
+          </select>
         </div>
         
         <div>
@@ -161,10 +177,10 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
             type="number"
             name="costoOtic" 
             value={form.costoOtic ?? ''} 
-            onChange={change} 
             min="0"
-            className="mt-1 w-full border rounded px-3 py-2" 
+            className="mt-1 w-full border rounded px-3 py-2 bg-gray-100"
             placeholder="0"
+            readOnly
           />
         </div>
         
@@ -174,10 +190,10 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
             type="number"
             name="costoEmpresa" 
             value={form.costoEmpresa ?? ''} 
-            onChange={change} 
             min="0"
-            className="mt-1 w-full border rounded px-3 py-2" 
+            className="mt-1 w-full border rounded px-3 py-2 bg-gray-100"
             placeholder="0"
+            readOnly
           />
         </div>
         

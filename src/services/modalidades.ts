@@ -3,6 +3,7 @@ import config from '../config/environment';
 export interface Modalidad {
   _id?: string;
   code: number;
+  nombre?: string;
   sincronico?: boolean;
   asincronico?: boolean;
   sincronico_online?: boolean;

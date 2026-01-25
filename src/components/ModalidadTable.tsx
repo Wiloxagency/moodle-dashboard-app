@@ -22,6 +22,7 @@ const ModalidadTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
   const pageRows = sorted.slice(start, end);
 
   const getLabels = (m: Modalidad) => {
+    if (m.nombre) return m.nombre;
     const labels: string[] = [];
     if (m.sincronico) labels.push('Sincrónico');
     if (m.asincronico) labels.push('Asincrónico');

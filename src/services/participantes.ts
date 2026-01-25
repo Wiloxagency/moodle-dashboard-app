@@ -8,6 +8,7 @@ export interface Participante {
   rut: string;
   mail: string;
   telefono?: string;
+  valorCobrado?: number;
   franquiciaPorcentaje?: number;
   costoOtic?: number;
   costoEmpresa?: number;

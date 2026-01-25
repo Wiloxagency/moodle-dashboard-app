@@ -213,7 +213,8 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
               if (m.sincronico_online) labels.push('Sincrónico On-line');
               if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
               if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
-              const label = labels.join(' | ') || `Modalidad ${m.code}`;
+              const labelBase = labels.join(' | ') || `Modalidad ${m.code}`;
+              const label = m.nombre || labelBase;
               return (
                 <option key={m._id || m.code} value={label}>
                   {label}
@@ -227,7 +228,8 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
               if (m.sincronico_online) labels.push('Sincrónico On-line');
               if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
               if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
-              const label = labels.join(' | ') || `Modalidad ${m.code}`;
+              const labelBase = labels.join(' | ') || `Modalidad ${m.code}`;
+              const label = m.nombre || labelBase;
               return label === form.modalidad;
             }) && (
               <option value={form.modalidad}>{form.modalidad} (actual)</option>

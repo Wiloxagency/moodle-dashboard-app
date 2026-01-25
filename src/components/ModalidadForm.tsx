@@ -3,11 +3,7 @@ import React, { useState } from 'react';
 export interface ModalidadFormData {
   _id?: string;
   code?: number;
-  sincronico: boolean;
-  asincronico: boolean;
-  sincronico_online: boolean;
-  sincronico_presencial_moodle: boolean;
-  sincronico_presencial_no_moodle: boolean;
+  nombre: string;
 }
 
 interface Props {
@@ -17,20 +13,16 @@ interface Props {
 }
 
 const empty: ModalidadFormData = {
-  sincronico: false,
-  asincronico: false,
-  sincronico_online: false,
-  sincronico_presencial_moodle: false,
-  sincronico_presencial_no_moodle: false,
+  nombre: '',
 };
 
 const ModalidadForm: React.FC<Props> = ({ initial, onClose, onSave }) => {
-  const [form, setForm] = useState<ModalidadFormData>(initial ?? empty);
+  const [form, setForm] = useState<ModalidadFormData>(initial ? { ...empty, ...initial } : empty);
   const [saving, setSaving] = useState(false);
 
   const change = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, checked } = e.target;
-    setForm(f => ({ ...f, [name]: checked }));
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -56,56 +48,18 @@ const ModalidadForm: React.FC<Props> = ({ initial, onClose, onSave }) => {
             />
           </div>
         )}
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Nombre</label>
           <input
-            type="checkbox"
-            name="sincronico"
-            checked={form.sincronico}
+            type="text"
+            name="nombre"
+            value={form.nombre}
             onChange={change}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="mt-1 w-full border rounded px-3 py-2"
+            placeholder="Ingrese el nombre de la modalidad"
+            required
           />
-          Sincrónico
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            name="asincronico"
-            checked={form.asincronico}
-            onChange={change}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Asincrónico
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            name="sincronico_online"
-            checked={form.sincronico_online}
-            onChange={change}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Sincrónico On-line
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            name="sincronico_presencial_moodle"
-            checked={form.sincronico_presencial_moodle}
-            onChange={change}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Sincrónico Presencial Moodle
-        </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            name="sincronico_presencial_no_moodle"
-            checked={form.sincronico_presencial_no_moodle}
-            onChange={change}
-            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-          Sincrónico Presencial No-Moodle
-        </label>
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t">

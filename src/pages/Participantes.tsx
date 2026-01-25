@@ -12,6 +12,7 @@ type SortKey =
   | 'rut'
   | 'mail'
   | 'telefono'
+  | 'valorCobrado'
   | 'franquiciaPorcentaje'
   | 'costoOtic'
   | 'costoEmpresa'
@@ -163,11 +164,22 @@ const ParticipantesPage: React.FC = () => {
 
         const nombresVal = row.Nombres ?? row.NOMBRES ?? row.nombres ?? base.nombres;
         const apellidosVal = row.Apellidos ?? row.APELLIDOS ?? row.apellidos ?? base.apellidos;
-        const mailVal = row.Mail ?? row.MAIL ?? row.mail ?? base.mail;
+        const mailVal =
+          row.Mail ??
+          row.MAIL ??
+          row.mail ??
+          row.Email ??
+          row.EMAIL ??
+          row.email ??
+          row.Correo ??
+          row['Correo electrónico'] ??
+          row['Correo Electronico'] ??
+          base.mail;
         const telefonoVal = row.Telefono ?? row['Teléfono'] ?? row['Télefono'] ?? row.telefono ?? base.telefono;
-        const franquiciaVal = row['%Franquisia'] ?? row['% Franquisia'] ?? row['% Franquicia'] ?? base.franquiciaPorcentaje;
-        const costoEmpresaVal = row['Costo empresa'] ?? row['Costo Empresa'] ?? base.costoEmpresa;
-        const costoOticVal = row['Costo OTIC'] ?? row['Costo Otic'] ?? base.costoOtic;
+          const franquiciaVal = row['%Franquisia'] ?? row['% Franquisia'] ?? row['% Franquicia'] ?? base.franquiciaPorcentaje;
+          const valorCobradoVal = row['Valor Cobrado'] ?? row['Valor cobrado'] ?? row.ValorCobrado ?? base.valorCobrado;
+          const costoEmpresaVal = row['Costo empresa'] ?? row['Costo Empresa'] ?? base.costoEmpresa;
+          const costoOticVal = row['Costo OTIC'] ?? row['Costo Otic'] ?? base.costoOtic;
         const estadoVal = row['Estado inscripción'] ?? row.estadoInscripcion ?? base.estadoInscripcion;
         const obsVal = row.Observacion ?? row.OBSERVACION ?? row.observacion ?? base.observacion;
 
@@ -180,6 +192,7 @@ const ParticipantesPage: React.FC = () => {
           mail: mailVal ? String(mailVal) : '',
           telefono: telefonoVal ? String(telefonoVal) : undefined,
           franquiciaPorcentaje: franquiciaVal !== undefined && franquiciaVal !== '' ? Number(franquiciaVal) : base.franquiciaPorcentaje,
+          valorCobrado: valorCobradoVal !== undefined && valorCobradoVal !== '' ? Number(valorCobradoVal) : base.valorCobrado,
           costoEmpresa: costoEmpresaVal !== undefined && costoEmpresaVal !== '' ? Number(costoEmpresaVal) : base.costoEmpresa,
           costoOtic: costoOticVal !== undefined && costoOticVal !== '' ? Number(costoOticVal) : base.costoOtic,
           estadoInscripcion: estadoVal ? String(estadoVal) : undefined,
@@ -203,6 +216,7 @@ const ParticipantesPage: React.FC = () => {
           mail: p.mail,
           telefono: p.telefono ? p.telefono : undefined,
           franquiciaPorcentaje: p.franquiciaPorcentaje,
+          valorCobrado: p.valorCobrado,
           costoOtic: p.costoOtic,
           costoEmpresa: p.costoEmpresa,
           estadoInscripcion: p.estadoInscripcion,
@@ -308,6 +322,7 @@ const requestSort = (key: SortKey) => {
       const get = (key: SortKey) => {
         switch (key) {
           case 'franquiciaPorcentaje': return a.franquiciaPorcentaje ?? 0;
+          case 'valorCobrado': return a.valorCobrado ?? 0;
           case 'costoOtic': return a.costoOtic ?? 0;
           case 'costoEmpresa': return a.costoEmpresa ?? 0;
           default: return (a as any)[key]?.toString()?.toLowerCase?.() ?? '';
@@ -316,6 +331,7 @@ const requestSort = (key: SortKey) => {
       const getB = (key: SortKey) => {
         switch (key) {
           case 'franquiciaPorcentaje': return b.franquiciaPorcentaje ?? 0;
+          case 'valorCobrado': return b.valorCobrado ?? 0;
           case 'costoOtic': return b.costoOtic ?? 0;
           case 'costoEmpresa': return b.costoEmpresa ?? 0;
           default: return (b as any)[key]?.toString()?.toLowerCase?.() ?? '';
@@ -507,6 +523,7 @@ const requestSort = (key: SortKey) => {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('rut')}>Rut <SortIcon col="rut" /></th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('mail')}>Mail <SortIcon col="mail" /></th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('telefono')}>Teléfono <SortIcon col="telefono" /></th>
+                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('valorCobrado')}>Valor Cobrado <SortIcon col="valorCobrado" /></th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('franquiciaPorcentaje')}>% Franquicia <SortIcon col="franquiciaPorcentaje" /></th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('costoOtic')}>Costo OTIC <SortIcon col="costoOtic" /></th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('costoEmpresa')}>Costo Empresa <SortIcon col="costoEmpresa" /></th>
@@ -525,6 +542,7 @@ const requestSort = (key: SortKey) => {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{p.rut}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{p.mail}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{p.telefono || '-'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(p.valorCobrado)}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{p.franquiciaPorcentaje != null ? `${p.franquiciaPorcentaje}%` : '-'}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(p.costoOtic)}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(p.costoEmpresa)}</td>
@@ -535,7 +553,7 @@ const requestSort = (key: SortKey) => {
                       })}
                       {!loading && pageRows.length === 0 && (
                         <tr>
-                          <td className="px-4 py-6 text-sm text-gray-500 text-center" colSpan={11}>
+                          <td className="px-4 py-6 text-sm text-gray-500 text-center" colSpan={12}>
                             {filtered.length === 0 && filter ? 'No se encontraron participantes que coincidan con el filtro' : 'Sin participantes'}
                           </td>
                         </tr>
