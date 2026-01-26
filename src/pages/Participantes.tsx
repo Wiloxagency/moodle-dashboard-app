@@ -19,6 +19,24 @@ type SortKey =
   | 'estadoInscripcion'
   | 'observacion';
 
+// Helpers para normalizar números/porcentajes provenientes del Excel
+const toNumberCell = (v: any): number | undefined => {
+  if (v === undefined || v === null || v === '') return undefined;
+  // Normalizar separadores decimales y eliminar símbolos no numéricos
+  const s = String(v).replace(/\s+/g, '').replace(',', '.');
+  const n = Number(s.replace(/[^0-9.-]/g, ''));
+  return Number.isNaN(n) ? undefined : n;
+};
+
+const toPercentCell = (v: any): number | undefined => {
+  if (v === undefined || v === null || v === '') return undefined;
+  const s = String(v).trim();
+  if (s.endsWith('%')) return toNumberCell(s);
+  const n = Number(s);
+  if (Number.isNaN(n)) return undefined;
+  return n <= 1 ? Math.round(n * 100) : n;
+};
+
 const ParticipantesPage: React.FC = () => {
   const { numeroInscripcion = '' } = useParams();
   const numeroInscripcionNum = Number(numeroInscripcion);
@@ -132,6 +150,21 @@ const ParticipantesPage: React.FC = () => {
       const worksheet = workbook.Sheets[sheetName];
       const rows: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
+      // Helper para localizar la columna de % Franquicia de forma robusta
+      const findFranquiciaValue = (row: any): any => {
+        // Intentos directos con nombres conocidos (incluimos la variante mal escrita solo por compatibilidad)
+        if (row['% Franquicia'] !== undefined) return row['% Franquicia'];
+        if (row['% Franquisia'] !== undefined) return row['% Franquisia'];
+        if (row['%Franquisia'] !== undefined) return row['%Franquisia'];
+
+        // Búsqueda laxa por nombre de columna (ignorando espacios, "%" y mayúsculas)
+        const key = Object.keys(row).find(k => {
+          const normalized = k.toString().toLowerCase().replace(/[%\s]/g, '');
+          return normalized.includes('franquicia');
+        });
+        return key ? row[key] : undefined;
+      };
+
       // Usamos solo lo que viene en el Excel: reemplaza completamente la tabla
       const byRut = new Map<string, Participante>();
 
@@ -176,11 +209,12 @@ const ParticipantesPage: React.FC = () => {
           row['Correo Electronico'] ??
           base.mail;
         const telefonoVal = row.Telefono ?? row['Teléfono'] ?? row['Télefono'] ?? row.telefono ?? base.telefono;
-          const franquiciaVal = row['%Franquisia'] ?? row['% Franquisia'] ?? row['% Franquicia'] ?? base.franquiciaPorcentaje;
-          const valorCobradoVal = row['Valor Cobrado'] ?? row['Valor cobrado'] ?? row.ValorCobrado ?? base.valorCobrado;
-          const costoEmpresaVal = row['Costo empresa'] ?? row['Costo Empresa'] ?? base.costoEmpresa;
-          const costoOticVal = row['Costo OTIC'] ?? row['Costo Otic'] ?? base.costoOtic;
-        const estadoVal = row['Estado inscripción'] ?? row.estadoInscripcion ?? base.estadoInscripcion;
+        const franquiciaRaw = findFranquiciaValue(row) ?? base.franquiciaPorcentaje;
+        const franquiciaVal = toPercentCell(franquiciaRaw);
+        const valorCobradoVal = row['Valor Cobrado'] ?? row['Valor cobrado'] ?? row.ValorCobrado ?? base.valorCobrado;
+        const costoEmpresaVal = row['Costo empresa'] ?? row['Costo Empresa'] ?? base.costoEmpresa;
+        const costoOticVal = row['Costo OTIC'] ?? row['Costo Otic'] ?? base.costoOtic;
+        const estadoVal = row['Estado inscripción'] ?? row.estadoInscripcion ?? base.estadoInscripcion ?? 'Inscrito';
         const obsVal = row.Observacion ?? row.OBSERVACION ?? row.observacion ?? base.observacion;
 
         const updated: Participante = {
@@ -191,11 +225,11 @@ const ParticipantesPage: React.FC = () => {
           apellidos: apellidosVal ? String(apellidosVal) : '',
           mail: mailVal ? String(mailVal) : '',
           telefono: telefonoVal ? String(telefonoVal) : undefined,
-          franquiciaPorcentaje: franquiciaVal !== undefined && franquiciaVal !== '' ? Number(franquiciaVal) : base.franquiciaPorcentaje,
+          franquiciaPorcentaje: franquiciaVal !== undefined ? franquiciaVal : base.franquiciaPorcentaje,
           valorCobrado: valorCobradoVal !== undefined && valorCobradoVal !== '' ? Number(valorCobradoVal) : base.valorCobrado,
           costoEmpresa: costoEmpresaVal !== undefined && costoEmpresaVal !== '' ? Number(costoEmpresaVal) : base.costoEmpresa,
           costoOtic: costoOticVal !== undefined && costoOticVal !== '' ? Number(costoOticVal) : base.costoOtic,
-          estadoInscripcion: estadoVal ? String(estadoVal) : undefined,
+          estadoInscripcion: estadoVal ? String(estadoVal) : 'Inscrito',
           observacion: obsVal ? String(obsVal) : undefined,
         };
 
