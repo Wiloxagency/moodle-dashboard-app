@@ -8,6 +8,7 @@ import ModalidadPage from './pages/Modalidad';
 import EjecutivosPage from './pages/Ejecutivos';
 import LoginPage from './pages/Login';
 import UsuariosPage from './pages/Usuarios';
+import SencePage from './pages/Sence';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -81,6 +82,14 @@ function App() {
           element={
             <ProtectedRoute requiredRole="superAdmin">
               <UsuariosPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sence"
+          element={
+            <ProtectedRoute requiredRole="superAdmin">
+              <SencePage />
             </ProtectedRoute>
           }
         />

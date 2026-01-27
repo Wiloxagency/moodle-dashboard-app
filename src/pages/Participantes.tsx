@@ -215,7 +215,17 @@ const ParticipantesPage: React.FC = () => {
         const costoEmpresaVal = row['Costo empresa'] ?? row['Costo Empresa'] ?? base.costoEmpresa;
         const costoOticVal = row['Costo OTIC'] ?? row['Costo Otic'] ?? base.costoOtic;
         const estadoVal = row['Estado inscripción'] ?? row.estadoInscripcion ?? base.estadoInscripcion ?? 'Inscrito';
-        const obsVal = row.Observacion ?? row.OBSERVACION ?? row.observacion ?? base.observacion;
+        const obsVal =
+          row.Observacion ??
+          row.OBSERVACION ??
+          row.observacion ??
+          row['Observación'] ??
+          row['OBSERVACIÓN'] ??
+          row['observación'] ??
+          row.Observaciones ??
+          row.OBSERVACIONES ??
+          row.observaciones ??
+          base.observacion;
 
         const updated: Participante = {
           ...base,

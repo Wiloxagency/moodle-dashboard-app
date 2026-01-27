@@ -79,6 +79,17 @@ const Header: React.FC = () => {
                   <UserCircle2 className="w-4 h-4" />
                   <span>Usuarios</span>
                 </Link>
+                <Link 
+                  to="/sence" 
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                    isActive('/sence') 
+                      ? 'bg-blue-50 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Sheet className="w-4 h-4" />
+                  <span>Sence</span>
+                </Link>
               </>
             )}
             <Link 
