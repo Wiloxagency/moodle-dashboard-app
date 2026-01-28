@@ -28,6 +28,7 @@ const Sidebar: React.FC = () => {
       <input 
         type="checkbox" 
         checked={checked} 
+        readOnly
         disabled={disabled}
         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />

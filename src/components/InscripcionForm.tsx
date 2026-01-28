@@ -134,6 +134,21 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
       const payload: any = { ...form };
       if (payload._id) delete payload._id;
       if (!payload.numeroInscripcion) delete payload.numeroInscripcion;
+      // Backend requiere codigoCurso; si no viene desde UI, usamos idMoodle como fallback
+      if (!payload.codigoCurso || String(payload.codigoCurso).trim() === '') {
+        if (payload.idMoodle && String(payload.idMoodle).trim() !== '') {
+          payload.codigoCurso = String(payload.idMoodle).trim();
+        }
+      }
+      // Asegurar statusAlumnos por defecto
+      if (!payload.statusAlumnos || String(payload.statusAlumnos).trim() === '') {
+        payload.statusAlumnos = 'Pendiente';
+      }
+      // Validar fecha de inicio provista desde el input de texto
+      if (!payload.inicio && inicioStr) {
+        const iso = toISODate(inicioStr);
+        if (iso) payload.inicio = iso;
+      }
       await onSave(payload);
     } finally {
       setSaving(false);

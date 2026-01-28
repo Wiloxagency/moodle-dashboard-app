@@ -45,7 +45,15 @@ export const inscripcionesApi = {
     const body = { ...payload, empresa: 'Mutual' } as any;
     if (!body.numeroInscripcion) delete body.numeroInscripcion;
     const res = await fetch(BASE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error('Error creating inscripción');
+    if (!res.ok) {
+      try {
+        const errJson = await res.json().catch(() => null as any);
+        const msg = errJson?.error?.message || errJson?.message || `Error creating inscripción (${res.status})`;
+        throw new Error(msg);
+      } catch (e: any) {
+        throw new Error(e?.message || 'Error creating inscripción');
+      }
+    }
     const json: ApiResponse<Inscripcion> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
     return json.data!;
