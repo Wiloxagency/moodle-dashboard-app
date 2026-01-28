@@ -53,6 +53,27 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
         : value 
     }));
   };
+  // Calcula automáticamente Costo OTIC (CO) y Costo Empresa (CE) a partir de
+  // Valor Cobrado (VC) y % Franquicia (F): CO = VC * (F/100), CE = VC - CO
+  useEffect(() => {
+    const vc = typeof form.valorCobrado === 'number' ? form.valorCobrado : undefined;
+    const f = typeof form.franquiciaPorcentaje === 'number' ? form.franquiciaPorcentaje : undefined;
+
+    if (vc == null || f == null) {
+      // Si falta alguno, limpiamos los derivados para evitar valores obsoletos
+      if (form.costoOtic !== undefined || form.costoEmpresa !== undefined) {
+        setForm((prev) => ({ ...prev, costoOtic: undefined, costoEmpresa: undefined }));
+      }
+      return;
+    }
+
+    const co = Math.round(vc * (f / 100));
+    const ce = Math.round(vc - co);
+
+    if (form.costoOtic !== co || form.costoEmpresa !== ce) {
+      setForm((prev) => ({ ...prev, costoOtic: co, costoEmpresa: ce }));
+    }
+  }, [form.valorCobrado, form.franquiciaPorcentaje]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,6 +99,23 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
       setDeleting(false);
     }
   };
+  // Tipo Participante (TP):
+  // - Si VC = 0 => Becado
+  // - Si VC > 0 y F = 100% => Sence
+  // - Si VC > 0 y F = 0%   => Empresa
+  // - Si VC > 0 y 0 < F < 100 => Sence Empresa
+  const tipoParticipante = (() => {
+    const vc = form.valorCobrado;
+    const f = form.franquiciaPorcentaje;
+    if (vc == null) return '';
+    if (vc === 0) return 'Becado';
+    if (vc > 0 && f != null) {
+      if (f === 100) return 'Sence';
+      if (f === 0) return 'Empresa';
+      if (f > 0 && f < 100) return 'Sence Empresa';
+    }
+    return '';
+  })();
 
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -196,6 +234,16 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
             readOnly
           />
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Tipo Participante</label>
+          <input 
+            name="tipoParticipante"
+            value={tipoParticipante || '-'}
+            readOnly
+            className="mt-1 w-full border rounded px-3 py-2 bg-gray-100"
+          />
+        </div>
         
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700">Estado Inscripción</label>
@@ -226,6 +274,7 @@ const ParticipanteForm: React.FC<Props> = ({ initial, numeroInscripcion, onCance
           placeholder="Comentarios o notas adicionales..."
         />
       </div>
+
 
       <div className="flex justify-between items-center pt-4 border-t">
         <div>

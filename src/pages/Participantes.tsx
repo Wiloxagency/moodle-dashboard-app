@@ -353,7 +353,6 @@ const requestSort = (key: SortKey) => {
       (p.rut || '').toLowerCase().includes(q) ||
       (p.mail || '').toLowerCase().includes(q) ||
       (p.telefono || '').toLowerCase().includes(q) ||
-      (p.estadoInscripcion || '').toLowerCase().includes(q) ||
       (p.observacion || '').toLowerCase().includes(q)
     );
   }, [data, filter]);
@@ -571,13 +570,27 @@ const requestSort = (key: SortKey) => {
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('franquiciaPorcentaje')}>% Franquicia <SortIcon col="franquiciaPorcentaje" /></th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('costoOtic')}>Costo OTIC <SortIcon col="costoOtic" /></th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('costoEmpresa')}>Costo Empresa <SortIcon col="costoEmpresa" /></th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('estadoInscripcion')}>Estado inscripción <SortIcon col="estadoInscripcion" /></th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo Participante</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('observacion')}>Observación <SortIcon col="observacion" /></th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {pageRows.map((p, idx) => {
                         const rowNumber = start + idx + 1;
+                        const vc = typeof p.valorCobrado === 'number' ? p.valorCobrado : undefined;
+                        const f = typeof p.franquiciaPorcentaje === 'number' ? p.franquiciaPorcentaje : undefined;
+                        const co = vc != null && f != null ? Math.round(vc * (f / 100)) : undefined;
+                        const ce = vc != null && f != null ? Math.round(vc - (co ?? 0)) : undefined;
+                        const tipoParticipante = (() => {
+                          if (vc == null) return '';
+                          if (vc === 0) return 'Becado';
+                          if (vc > 0 && f != null) {
+                            if (f === 100) return 'Sence';
+                            if (f === 0) return 'Empresa';
+                            if (f > 0 && f < 100) return 'Sence Empresa';
+                          }
+                          return '';
+                        })();
                         return (
                           <tr key={`${p.rut}-${rowNumber}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleEdit(p)}>
                             <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
@@ -588,13 +601,14 @@ const requestSort = (key: SortKey) => {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{p.telefono || '-'}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(p.valorCobrado)}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{p.franquiciaPorcentaje != null ? `${p.franquiciaPorcentaje}%` : '-'}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(p.costoOtic)}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(p.costoEmpresa)}</td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{p.estadoInscripcion || '-'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(co)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(ce)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-left text-gray-900">{tipoParticipante || '-'}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[320px] truncate" title={p.observacion}>{p.observacion || '-'}</td>
                           </tr>
                         );
                       })}
+
                       {!loading && pageRows.length === 0 && (
                         <tr>
                           <td className="px-4 py-6 text-sm text-gray-500 text-center" colSpan={12}>

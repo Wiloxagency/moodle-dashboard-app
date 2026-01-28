@@ -3,6 +3,7 @@ import { Trash2, Loader2 } from 'lucide-react';
 import { type Inscripcion } from '../services/inscripciones';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
+import { senceApi, type Sence } from '../services/sence';
 
 interface Props {
   initial?: Partial<Inscripcion>;
@@ -14,7 +15,9 @@ interface Props {
 const empty: Inscripcion = {
   numeroInscripcion: 0, // autogenerado (numeric)
   correlativo: 0,
+  // Mantener campos requeridos por el tipo, aunque no se editen en UI
   codigoCurso: '',
+  statusAlumnos: 'Pendiente',
   empresa: 'Mutual',
   codigoSence: undefined,
   ordenCompra: undefined,
@@ -27,8 +30,6 @@ const empty: Inscripcion = {
   ejecutivo: '',
   numAlumnosInscritos: 0,
   valorInicial: undefined,
-  valorFinal: undefined,
-  statusAlumnos: 'Pendiente',
   comentarios: undefined,
 };
 
@@ -62,6 +63,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
   const [deleting, setDeleting] = useState(false);
   const [modalidades, setModalidades] = useState<Modalidad[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
+  const [senceItems, setSenceItems] = useState<Sence[]>([]);
 
   // Local state for date inputs
   const [inicioStr, setInicioStr] = useState('');
@@ -80,13 +82,15 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
     let mounted = true;
     const loadOptions = async () => {
       try {
-        const [mods, ejs] = await Promise.all([
+        const [mods, ejs, scs] = await Promise.all([
           modalidadesApi.list(),
           ejecutivosApi.list(),
+          senceApi.list(),
         ]);
         if (!mounted) return;
         setModalidades(mods);
-        setEjecutivos(ejs.filter(e => !e.status || e.status.toLowerCase() === 'activo'));
+        setEjecutivos(ejs.filter(e => !e.status || e.status.toLowerCase() === 'activo'))
+        setSenceItems(scs);
       } catch (err) {
         console.error('Error cargando modalidades/ejecutivos para el formulario de inscripción', err);
       }
@@ -97,7 +101,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numeric = ['numAlumnosInscritos', 'valorInicial', 'valorFinal', 'correlativo'];
+    const numeric = ['numAlumnosInscritos', 'valorInicial', 'correlativo'];
     setForm((f) => ({
       ...f,
       [name]: numeric.includes(name) ? (value === '' ? (undefined as any) : Number(value)) : value,
@@ -149,7 +153,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700">N° Inscripción</label>
           <input 
@@ -162,41 +166,50 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
           />
         </div>
         <div>
+          <label className="block text-sm font-medium text-gray-700">Empresa</label>
+          <input name="empresa" value={form.empresa} onChange={change} className="mt-1 w-full border rounded px-3 py-2 bg-gray-100" disabled />
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700">N° Correlativo <span className="text-red-500">*</span></label>
           <input type="number" name="correlativo" value={form.correlativo ?? ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Código del Curso <span className="text-red-500">*</span></label>
-          <input name="codigoCurso" value={form.codigoCurso || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Código Sence</label>
-          <input name="codigoSence" value={form.codigoSence || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Orden de Compra</label>
           <input name="ordenCompra" value={form.ordenCompra || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
+          <label className="block text-sm font-medium text-gray-700">Código Sence</label>
+          <select
+            name="codigoSence"
+            value={form.codigoSence || ''}
+            onChange={change}
+            className="mt-1 w-full border rounded px-3 py-2"
+          >
+            <option value="">Seleccione...</option>
+            {senceItems.map((s) => {
+              const code = s.codigo_sence || String(s.code);
+              const name = (s.nombre_sence || '').trim();
+              const show = name.length > 50 ? name.slice(0, 47) + '...' : name;
+              return (<option key={s._id || code} value={code}>{`${code} - ${show}`}</option>);
+            })}
+            {form.codigoSence && !senceItems.some((s) => (s.codigo_sence || String(s.code)) === form.codigoSence) && (
+              <option value={form.codigoSence}>{form.codigoSence} (actual)</option>
+            )}
+          </select>
+        </div>
+        <div>
           <label className="block text-sm font-medium text-gray-700">ID Sence</label>
           <input name="idSence" value={form.idSence || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700">ID Moodle <span className="text-red-500">*</span></label>
           <input name="idMoodle" value={form.idMoodle || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Empresa</label>
-          <input name="empresa" value={form.empresa} onChange={change} className="mt-1 w-full border rounded px-3 py-2 bg-gray-100" disabled />
-        </div>
-        <div>
           <label className="block text-sm font-medium text-gray-700">Nombre del Curso</label>
           <input name="nombreCurso" value={form.nombreCurso || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
-
-        <div>
+<div>
           <label className="block text-sm font-medium text-gray-700">Modalidad <span className="text-red-500">*</span></label>
           <select
             name="modalidad"
@@ -236,7 +249,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
             )}
           </select>
         </div>
-        <div>
+<div>
           <label className="block text-sm font-medium text-gray-700">Fecha de Inicio <span className="text-red-500">*</span></label>
           <input 
             type="text" 
@@ -247,18 +260,18 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
             className="mt-1 w-full border rounded px-3 py-2" 
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Fecha Final</label>
+<div>
+          <label className="block text-sm font-medium text-gray-700">Fecha Final <span className="text-red-500">*</span></label>
           <input 
             type="text" 
             placeholder="dd/mm/yyyy"
             value={terminoStr} 
             onChange={(e) => handleDateChange('termino', e.target.value)} 
+            required 
             className="mt-1 w-full border rounded px-3 py-2" 
           />
         </div>
-
-        <div>
+<div>
           <label className="block text-sm font-medium text-gray-700">Ejecutivo <span className="text-red-500">*</span></label>
           <select
             name="ejecutivo"
@@ -291,18 +304,6 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         <div>
           <label className="block text-sm font-medium text-gray-700">Valor Inicial</label>
           <input type="number" name="valorInicial" value={form.valorInicial ?? ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Valor Final</label>
-          <input type="number" name="valorFinal" value={form.valorFinal ?? ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Status de Alumnos <span className="text-red-500">*</span></label>
-          <select name="statusAlumnos" required value={form.statusAlumnos} onChange={change} className="mt-1 w-full border rounded px-3 py-2">
-            <option value="Pendiente">Pendiente</option>
-            <option value="En curso">En curso</option>
-            <option value="Finalizado">Finalizado</option>
-          </select>
         </div>
       </div>
 
