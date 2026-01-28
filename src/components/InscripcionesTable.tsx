@@ -26,7 +26,6 @@ type SortKey =
   | 'ejecutivo'
   | 'numAlumnosInscritos'
   | 'valorInicial'
-  | 'diferencia';
 
 const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit }) => {
   const navigate = useNavigate();
@@ -83,14 +82,10 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
     const arr = [...filtered];
     const dir = sortDir === 'asc' ? 1 : -1;
     arr.sort((a, b) => {
-      const vIa = (a.valorInicial ?? 0); const vFa = (a.valorFinal ?? 0); const diffA = vFa - vIa;
-      const vIb = (b.valorInicial ?? 0); const vFb = (b.valorFinal ?? 0); const diffB = vFb - vIb;
       const get = (key: SortKey) => {
         switch (key) {
           case 'secuencial': return 0; // handled by index
-          case 'diferencia': return diffA;
-          case 'numAlumnosInscritos': return (participantCounts[a.numeroInscripcion] ?? a.numAlumnosInscritos);
-          case 'valorInicial': return a.valorInicial ?? 0;
+                    case 'valorInicial': return a.valorInicial ?? 0;
           case 'inicio': return new Date(a.inicio).getTime() || 0;
           case 'termino': return a.termino ? new Date(a.termino).getTime() || 0 : 0;
           case 'numeroInscripcion': return parseInt(a.numeroInscripcion as any, 10) || 0;
@@ -101,9 +96,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
       const getB = (key: SortKey) => {
         switch (key) {
           case 'secuencial': return 0;
-          case 'diferencia': return diffB;
-          case 'numAlumnosInscritos': return (participantCounts[b.numeroInscripcion] ?? b.numAlumnosInscritos);
-          case 'valorInicial': return b.valorInicial ?? 0;
+                    case 'numAlumnosInscritos': return (participantCounts[b.numeroInscripcion] ?? b.numAlumnosInscritos);
           case 'inicio': return new Date(b.inicio).getTime() || 0;
           case 'termino': return b.termino ? new Date(b.termino).getTime() || 0 : 0;
           case 'numeroInscripcion': return parseInt(b.numeroInscripcion as any, 10) || 0;
@@ -173,18 +166,15 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
               <th className="px-4 py-3 text-left min-w-[120px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('ejecutivo')}>Ejecutivo <SortIcon col="ejecutivo" /></th>
               <th className="px-4 py-3 text-right min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('numAlumnosInscritos')}>Num Alumnos Inscritos <SortIcon col="numAlumnosInscritos" /></th>
               <th className="px-4 py-3 text-right min-w-[110px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('valorInicial')}>Valor Inicial <SortIcon col="valorInicial" /></th>
-              <th className="px-4 py-3 text-right min-w-[130px] text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('diferencia')}>Diferencia <SortIcon col="diferencia" /></th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comentario</th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {pageRows.map((r, idx) => {
-              const diferencia = (r.valorFinal ?? 0) - (r.valorInicial ?? 0);
-              const diffColor = diferencia === 0 ? 'text-gray-700' : diferencia < 0 ? 'text-green-700' : 'text-red-700';
               const rowNumber = start + idx + 1;
               return (
-                <tr key={`${r.numeroInscripcion}-${rowNumber}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => onEdit && onEdit(r)}>
+                <tr onClick={() => onEdit && onEdit(r)} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[145px]">{r.numeroInscripcion}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.correlativo}</td>
@@ -204,7 +194,6 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{r.ejecutivo}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[130px]">{participantCounts[r.numeroInscripcion] ?? r.numAlumnosInscritos}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[110px]">{formatCurrency(r.valorInicial)}</td>
-                  <td className={`px-4 py-3 whitespace-nowrap text-sm text-right min-w-[130px] ${diffColor}`}>{formatCurrency(diferencia)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[320px] truncate" title={r.comentarios}>{r.comentarios || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
                     <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
