@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import type { Inscripcion } from '../services/inscripciones';
 import inscripcionesApi from '../services/inscripciones';
 import participantesApi from '../services/participantes';
@@ -56,8 +57,14 @@ const CourseTable: React.FC = () => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm w-full max-w-[1150px] mx-auto">
-      <div className="px-6 py-4 border-b border-gray-200">
+      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Inscripciones de Cursos Activos</h2>
+        <Link
+          to="/reporte-avances"
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+        >
+          Reporte de Avances
+        </Link>
       </div>
       
       <div className="overflow-x-auto">
