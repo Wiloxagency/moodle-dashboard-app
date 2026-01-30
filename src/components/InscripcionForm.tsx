@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
 import { type Inscripcion } from '../services/inscripciones';
+import { apiService } from '../services/api';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
 import { senceApi, type Sence } from '../services/sence';
@@ -62,6 +63,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [modalidades, setModalidades] = useState<Modalidad[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
   const [senceItems, setSenceItems] = useState<Sence[]>([]);
@@ -126,6 +128,31 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
       } else if (val === '') {
           setForm(prev => ({ ...prev, [field]: undefined }));
       }
+  };
+
+  const handleVerifyMoodle = async () => {
+    const id = String(form.idMoodle || '').trim();
+    if (!id) {
+      window.alert('Ingrese ID Moodle');
+      return;
+    }
+    setVerifying(true);
+    try {
+      const res: any = await apiService.getCoursesByField('id', id);
+      const courses = (res as any)?.courses || (res as any)?.data?.courses || [];
+      const course = Array.isArray(courses) && courses.length ? courses[0] : null;
+      const name = course?.fullname || course?.displayname || course?.shortname;
+      if (name) {
+        setForm((prev) => ({ ...prev, nombreCurso: String(name) }));
+      } else {
+        window.alert('No se encontró el curso para el ID indicado');
+      }
+    } catch (e) {
+      console.error('Error verificando curso en Moodle', e);
+      window.alert('No se pudo obtener el curso desde Moodle');
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -219,7 +246,17 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">ID Moodle <span className="text-red-500">*</span></label>
-          <input name="idMoodle" value={form.idMoodle || ''} onChange={change} required className="mt-1 w-full border rounded px-3 py-2" />
+          <div className="mt-1 flex items-center gap-2">
+            <input name="idMoodle" value={form.idMoodle || ''} onChange={change} required className="w-full border rounded px-3 py-2" />
+            <button
+              type="button"
+              onClick={handleVerifyMoodle}
+              disabled={verifying}
+              className="px-3 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              {verifying ? 'Verificando...' : 'Verificar'}
+            </button>
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Nombre del Curso</label>
