@@ -32,16 +32,20 @@ const StatCard: React.FC<StatCardProps> = ({ title, count, percentage, color, bg
   <div className={`p-4 rounded-lg border ${isTotal ? 'border-gray-300' : 'border-gray-200'} bg-white`}> 
     <div className="flex items-center justify-between mb-2">
       <h3 className="text-sm font-medium text-gray-700">{title}</h3>
-      <span className={`text-sm font-semibold ${color}`}>{percentage.toFixed(1)}%</span>
+      {!isTotal && (
+        <span className={`text-sm font-semibold ${color}`}>{percentage.toFixed(1)}%</span>
+      )}
     </div>
     <div className="flex items-center justify-between">
       <span className={`text-2xl font-bold ${color}`}>{count}</span>
-      <div className="w-16 bg-gray-100 rounded-full h-2">
-        <div 
-          className={`${bgColor} h-2 rounded-full transition-all duration-300`}
-          style={{ width: `${Math.min(percentage, 100)}%` }}
-        ></div>
-      </div>
+      {!isTotal && (
+        <div className="w-16 bg-gray-100 rounded-full h-2">
+          <div 
+            className={`${bgColor} h-2 rounded-full transition-all duration-300`}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
+          ></div>
+        </div>
+      )}
     </div>
   </div>
 );

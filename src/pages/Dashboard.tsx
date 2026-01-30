@@ -217,17 +217,19 @@ const Dashboard: React.FC = () => {
       
       <div className="flex-1 overflow-auto custom-scrollbar">
         <div className="p-6">
-          <div className="mb-4 flex items-center justify-end gap-2 text-sm text-gray-600">
-            <button
-              onClick={() => loadCache(true)}
-              disabled={refreshing || loading}
-              className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Actualizar métricas"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Actualizando...' : 'Actualizar'}
-            </button>
-            <span>Última actualización: {formatUpdatedAt(cache?.updatedAt)}</span>
+          <div className="mb-4 w-full max-w-[1150px] mx-auto">
+            <div className="flex items-center justify-end gap-3 text-sm text-gray-600">
+              <span>Última actualización: {formatUpdatedAt(cache?.updatedAt)}</span>
+              <button
+                onClick={() => loadCache(true)}
+                disabled={refreshing || loading}
+                className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Actualizar métricas"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Actualizando...' : 'Actualizar'}
+              </button>
+            </div>
           </div>
 
           <div className="mb-8 w-full max-w-[1150px] mx-auto">
