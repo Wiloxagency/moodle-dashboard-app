@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
 import { reportesApi, type ReporteAvanceRow } from '../services/reportes';
 
 const ReporteAvances: React.FC = () => {
@@ -7,6 +6,7 @@ const ReporteAvances: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | undefined>(undefined);
+  const [exporting, setExporting] = useState(false);
 
   const load = async () => {
     try {
@@ -56,31 +56,58 @@ const ReporteAvances: React.FC = () => {
     }));
   }, [data, generatedAt]);
 
-  const handleExport = () => {
-    const ws = XLSX.utils.json_to_sheet(exportRows, {
-      header: [
-        'Empresa',
-        'Nombre del Curso',
-        'ID Sence',
-        'RUT',
-        'Nombres',
-        'Apellidos',
-        'Email',
-        'Fecha de Inicio',
-        'Fecha Final',
-        'Nota final',
-        '% Avance',
-        '% Asistencia',
-        'Fecha reporte',
-        'N° Correlativo',
-        'Responsable',
-      ]
-    });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Reporte');
-    const today = new Date();
-    const filename = `reporte-avance-mutual-${today.toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, filename);
+  const handleExport = async () => {
+    if (!exportRows.length || exporting) return;
+    setExporting(true);
+    try {
+      const mod = await import('exceljs');
+      const workbook = new mod.Workbook();
+      const worksheet = workbook.addWorksheet('Reporte');
+
+      worksheet.columns = [
+        { header: 'Empresa', key: 'Empresa', width: 18 },
+        { header: 'Nombre del Curso', key: 'Nombre del Curso', width: 54 },
+        { header: 'ID Sence', key: 'ID Sence', width: 18 },
+        { header: 'RUT', key: 'RUT', width: 16 },
+        { header: 'Nombres', key: 'Nombres', width: 20 },
+        { header: 'Apellidos', key: 'Apellidos', width: 20 },
+        { header: 'Email', key: 'Email', width: 28 },
+        { header: 'Fecha de Inicio', key: 'Fecha de Inicio', width: 18 },
+        { header: 'Fecha Final', key: 'Fecha Final', width: 18 },
+        { header: 'Nota final', key: 'Nota final', width: 12 },
+        { header: '% Avance', key: '% Avance', width: 12 },
+        { header: '% Asistencia', key: '% Asistencia', width: 14 },
+        { header: 'Fecha reporte', key: 'Fecha reporte', width: 18 },
+        { header: 'N° Correlativo', key: 'N° Correlativo', width: 16 },
+        { header: 'Responsable', key: 'Responsable', width: 20 },
+      ];
+
+      exportRows.forEach((row) => worksheet.addRow(row));
+
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006400' } };
+        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      headerRow.height = 20;
+
+      worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const today = new Date();
+      a.download = `reporte-avance-mutual-${today.toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -97,10 +124,10 @@ const ReporteAvances: React.FC = () => {
               </div>
               <button
                 onClick={handleExport}
-                disabled={!exportRows.length}
+                disabled={!exportRows.length || exporting}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exportar Excel
+                {exporting ? 'Exportando...' : 'Exportar Excel'}
               </button>
             </div>
 
