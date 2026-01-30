@@ -30,6 +30,7 @@ const empty: Inscripcion = {
   ejecutivo: '',
   numAlumnosInscritos: 0,
   valorInicial: undefined,
+  responsable: undefined,
   comentarios: undefined,
 };
 
@@ -319,6 +320,10 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         <div>
           <label className="block text-sm font-medium text-gray-700">Valor Inicial</label>
           <input type="number" name="valorInicial" value={form.valorInicial ?? ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Responsable</label>
+          <input name="responsable" value={form.responsable || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" />
         </div>
       </div>
 
