@@ -1,55 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import type { Inscripcion } from '../services/inscripciones';
-import inscripcionesApi from '../services/inscripciones';
-import participantesApi from '../services/participantes';
+import type { DashboardInscripcion } from '../services/dashboard';
 
-interface DashboardTableState {
-  inscripciones: Inscripcion[];
-  participantCounts: Record<string, number>;
-  loading: boolean;
-  error: string | null;
+interface Props {
+  data: DashboardInscripcion[];
+  loading?: boolean;
+  error?: string | null;
 }
 
-const CourseTable: React.FC = () => {
-  const [state, setState] = useState<DashboardTableState>({
-    inscripciones: [],
-    participantCounts: {},
-    loading: true,
-    error: null
-  });
-
-  // Cargar inscripciones y conteos de participantes
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setState(prev => ({ ...prev, loading: true, error: null }));
-        const ins = await inscripcionesApi.list();
-        const ids = ins
-          .map(i => i.numeroInscripcion)
-          .filter((n): n is number => n !== null && n !== undefined);
-        let counts: Record<string, number> = {};
-        try {
-          counts = await participantesApi.counts(ids);
-        } catch (e) {
-          // Si falla el conteo, continuamos usando los valores locales
-          counts = {};
-        }
-        setState(prev => ({ ...prev, inscripciones: ins, participantCounts: counts, loading: false }));
-      } catch (error: any) {
-        setState(prev => ({ ...prev, loading: false, error: error?.message || 'Error al cargar inscripciones' }));
-      }
-    };
-    load();
-  }, []);
-
-  // Cálculo: (termino - inicio) en días, según requerimiento
-  const calculateDaysBetween = (inicio?: string, termino?: string): number | null => {
-    if (!inicio || !termino) return null;
-    const start = new Date(inicio).getTime();
-    const end = new Date(termino).getTime();
-    if (!isFinite(start) || !isFinite(end)) return null;
-    const diffDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+const CourseTable: React.FC<Props> = ({ data, loading, error }) => {
+  const calculateDaysRemaining = (termino?: string): number | null => {
+    if (!termino) return null;
+    const end = new Date(termino);
+    if (isNaN(end.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return diffDays < 0 ? 0 : diffDays;
   };
 
@@ -82,7 +49,7 @@ const CourseTable: React.FC = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {state.loading ? (
+            {loading ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   <div className="flex items-center justify-center space-x-2">
@@ -91,43 +58,47 @@ const CourseTable: React.FC = () => {
                   </div>
                 </td>
               </tr>
-            ) : state.error ? (
+            ) : error ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-red-600">
+                <td colSpan={8} className="px-4 py-8 text-center text-red-500">
                   <div className="flex flex-col items-center space-y-2">
                     <span>❌ Error al cargar las inscripciones</span>
-                    <span className="text-sm text-gray-500">{state.error}</span>
+                    <span className="text-sm">{error}</span>
                   </div>
                 </td>
               </tr>
-            ) : state.inscripciones.length === 0 ? (
+            ) : data.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   No hay inscripciones disponibles
                 </td>
               </tr>
             ) : (
-              state.inscripciones.map((insc, index) => {
-                const days = calculateDaysBetween(insc.inicio, insc.termino);
-                const totalAlumnos = state.participantCounts[insc.numeroInscripcion] ?? insc.numAlumnosInscritos;
+              data.map((insc) => {
+                const days = calculateDaysRemaining(insc.termino);
+                const totalAlumnos = insc.participantCount ?? insc.numAlumnosInscritos ?? 0;
                 return (
-                  <tr key={insc._id || insc.numeroInscripcion || index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">{insc.numeroInscripcion}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{insc.idMoodle || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{insc.correlativo ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900 max-w-[300px] truncate" title={insc.nombreCurso || ""}>{insc.nombreCurso || "-"}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap min-w-[140px]">{formatISODate(insc.inicio)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap min-w-[140px]">{formatISODate(insc.termino)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
+                  <tr key={String(insc.numeroInscripcion)} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                      {insc.numeroInscripcion}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{insc.idMoodle || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{insc.correlativo ?? '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{insc.nombreCurso || '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatISODate(insc.inicio)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{formatISODate(insc.termino)}</td>
+                    <td className="px-4 py-3 text-sm">
                       {days !== null ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          days > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
                           {days} días
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-xs">-</span>
+                        '-'
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-medium">{totalAlumnos}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{totalAlumnos}</td>
                   </tr>
                 );
               })
@@ -136,11 +107,14 @@ const CourseTable: React.FC = () => {
         </table>
       </div>
       
-      {/* Footer with course count */}
       <div className="px-6 py-4 border-t border-gray-200">
-        <div className="text-sm text-gray-500">
-          {state.loading ? 'Cargando...' : state.error ? 'Error al cargar datos' : `Mostrando ${state.inscripciones.length} inscripciones`}
-        </div>
+        {loading ? (
+          <p className="text-sm text-gray-500">Cargando...</p>
+        ) : error ? (
+          <p className="text-sm text-red-500">Error al cargar datos</p>
+        ) : (
+          <p className="text-sm text-gray-500">Mostrando {data.length} inscripciones</p>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Sheet, LogOut, User, Home, Users, Building2, Waypoints, UserCircle2 } from 'lucide-react';
+import { LogOut, User, Home, Users, Building2, Waypoints, UserCircle2, Sheet } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 
@@ -117,20 +117,6 @@ const Header: React.FC = () => {
           </nav>
         </div>
         
-        <div className="flex items-center space-x-4">
-          {/* Exportar PDF Button */}
-          <button className="flex items-center space-x-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm">
-            <FileText className="w-4 h-4" />
-            <span className="text-sm font-medium">Exportar PDF</span>
-          </button>
-          
-          {/* Exportar Excel Button */}
-          <button className="flex items-center space-x-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors shadow-sm">
-            <Sheet className="w-4 h-4" />
-            <span className="text-sm font-medium">Exportar Excel</span>
-          </button>
-        </div>
-
         <div className="flex items-center space-x-4">
           {/* User Name */}
           <div className="flex items-center space-x-2 text-gray-700">
