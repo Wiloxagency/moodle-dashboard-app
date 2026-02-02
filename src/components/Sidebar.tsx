@@ -2,19 +2,19 @@ import React from 'react';
 import { ChevronDown } from 'lucide-react';
 
 interface SidebarProps {
-  months: string[];
-  selectedMonths: string[];
-  onToggleMonth: (month: string) => void;
-  onToggleAllMonths: () => void;
-  modalidades: string[];
-  selectedModalidades: string[];
-  onToggleModalidad: (modalidad: string) => void;
-  cursos: string[];
-  selectedCursos: string[];
-  onToggleCurso: (curso: string) => void;
-  onToggleAllCursos: () => void;
-  estadoCurso: { active: boolean; finalizado: boolean };
-  onToggleEstadoCurso: (key: 'active' | 'finalizado') => void;
+  months?: string[];
+  selectedMonths?: string[];
+  onToggleMonth?: (month: string) => void;
+  onToggleAllMonths?: () => void;
+  modalidades?: string[];
+  selectedModalidades?: string[];
+  onToggleModalidad?: (modalidad: string) => void;
+  cursos?: string[];
+  selectedCursos?: string[];
+  onToggleCurso?: (curso: string) => void;
+  onToggleAllCursos?: () => void;
+  estadoCurso?: { active: boolean; finalizado: boolean };
+  onToggleEstadoCurso?: (key: 'active' | 'finalizado') => void;
 }
 
 interface FilterSectionProps {
@@ -43,6 +43,7 @@ const Checkbox: React.FC<CheckboxProps> = ({ label, checked = false, disabled = 
       checked={checked}
       disabled={disabled}
       onChange={onChange}
+      readOnly={!onChange}
       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
     />
     <span className="text-sm text-gray-600">{label}</span>
@@ -50,19 +51,19 @@ const Checkbox: React.FC<CheckboxProps> = ({ label, checked = false, disabled = 
 );
 
 const Sidebar: React.FC<SidebarProps> = ({
-  months,
-  selectedMonths,
-  onToggleMonth,
-  onToggleAllMonths,
-  modalidades,
-  selectedModalidades,
-  onToggleModalidad,
-  cursos,
-  selectedCursos,
-  onToggleCurso,
-  onToggleAllCursos,
-  estadoCurso,
-  onToggleEstadoCurso,
+  months = [],
+  selectedMonths = [],
+  onToggleMonth = () => {},
+  onToggleAllMonths = () => {},
+  modalidades = [],
+  selectedModalidades = [],
+  onToggleModalidad = () => {},
+  cursos = [],
+  selectedCursos = [],
+  onToggleCurso = () => {},
+  onToggleAllCursos = () => {},
+  estadoCurso = { active: true, finalizado: false },
+  onToggleEstadoCurso = () => {},
 }) => {
   const allMonthsSelected = months.length > 0 && selectedMonths.length === months.length;
   const allCursosSelected = cursos.length > 0 && selectedCursos.length === cursos.length;

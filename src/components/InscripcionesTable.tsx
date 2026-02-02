@@ -190,8 +190,9 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
           <tbody className="bg-white divide-y divide-gray-200">
             {pageRows.map((r, idx) => {
               const rowNumber = start + idx + 1;
+              const rowKey = (r as any)._id || `ins-${String(r.numeroInscripcion)}-${rowNumber}`;
               return (
-                <tr onClick={() => onEdit && onEdit(r)} className="hover:bg-gray-50 cursor-pointer">
+                <tr key={rowKey} onClick={() => onEdit && onEdit(r)} className="hover:bg-gray-50 cursor-pointer">
                   <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[145px]">{r.numeroInscripcion}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.correlativo}</td>
