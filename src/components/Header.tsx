@@ -44,19 +44,20 @@ const Header: React.FC = () => {
               <Home className="w-4 h-4" />
               <span>Dashboard</span>
             </Link>
-            <Link 
-              to="/inscripciones" 
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/inscripciones') 
-                  ? 'bg-blue-50 text-blue-700 font-medium' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>Inscripciones</span>
-            </Link>
+
             {isSuperAdmin && (
               <>
+                <Link 
+                  to="/inscripciones" 
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                    isActive('/inscripciones') 
+                      ? 'bg-blue-50 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Inscripciones</span>
+                </Link>
                 <Link 
                   to="/empresas" 
                   className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
@@ -90,30 +91,30 @@ const Header: React.FC = () => {
                   <Sheet className="w-4 h-4" />
                   <span>Sence</span>
                 </Link>
+                <Link 
+                  to="/modalidad" 
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                    isActive('/modalidad') 
+                      ? 'bg-blue-50 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <Waypoints className="w-4 h-4" />
+                  <span>Modalidad</span>
+                </Link>
+                <Link 
+                  to="/ejecutivos" 
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                    isActive('/ejecutivos') 
+                      ? 'bg-blue-50 text-blue-700 font-medium' 
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  <UserCircle2 className="w-4 h-4" />
+                  <span>Ejecutivos</span>
+                </Link>
               </>
             )}
-            <Link 
-              to="/modalidad" 
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/modalidad') 
-                  ? 'bg-blue-50 text-blue-700 font-medium' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <Waypoints className="w-4 h-4" />
-              <span>Modalidad</span>
-            </Link>
-            <Link 
-              to="/ejecutivos" 
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                isActive('/ejecutivos') 
-                  ? 'bg-blue-50 text-blue-700 font-medium' 
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <UserCircle2 className="w-4 h-4" />
-              <span>Ejecutivos</span>
-            </Link>
           </nav>
         </div>
         

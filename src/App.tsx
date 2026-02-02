@@ -39,7 +39,7 @@ function App() {
         <Route
           path="/reporte-avances"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="superAdmin">
               <ReporteAvances />
             </ProtectedRoute>
           }
@@ -47,7 +47,7 @@ function App() {
         <Route
           path="/inscripciones"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="superAdmin">
               <Inscripciones />
             </ProtectedRoute>
           }
@@ -55,7 +55,7 @@ function App() {
         <Route
           path="/modalidad"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="superAdmin">
               <ModalidadPage />
             </ProtectedRoute>
           }
@@ -63,7 +63,7 @@ function App() {
         <Route
           path="/ejecutivos"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="superAdmin">
               <EjecutivosPage />
             </ProtectedRoute>
           }
@@ -71,7 +71,7 @@ function App() {
         <Route
           path="/participantes/:numeroInscripcion"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredRole="superAdmin">
               <Participantes />
             </ProtectedRoute>
           }
