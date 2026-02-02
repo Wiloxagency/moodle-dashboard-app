@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Role } from '../types/auth';
 import {
   listUsers,
@@ -8,18 +8,21 @@ import {
   deleteUser,
   type StoredUser,
 } from '../services/users';
+import { empresasApi, type Empresa } from '../services/empresas';
 
 interface UserFormState {
   id?: string;
   username: string;
   role: Role;
   password: string;
+  empresa: number | '';
 }
 
 const emptyForm: UserFormState = {
   username: '',
   role: 'user',
   password: '',
+  empresa: '',
 };
 
 const UsuariosPage: React.FC = () => {
@@ -30,6 +33,15 @@ const UsuariosPage: React.FC = () => {
   const [newPassword, setNewPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+
+  const empresaByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const e of empresas) {
+      map[e.code] = e.nombre;
+    }
+    return map;
+  }, [empresas]);
 
   const load = async () => {
     try {
@@ -41,8 +53,18 @@ const UsuariosPage: React.FC = () => {
     }
   };
 
+  const loadEmpresas = async () => {
+    try {
+      const data = await empresasApi.list();
+      setEmpresas(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadEmpresas();
   }, []);
 
   const resetMessages = () => {
@@ -50,8 +72,17 @@ const UsuariosPage: React.FC = () => {
     setSuccess(null);
   };
 
-  const handleChange = (field: keyof UserFormState, value: string | Role) => {
+  const handleChange = (field: keyof UserFormState, value: string | Role | number | '') => {
     setForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleEmpresaChange = (value: string) => {
+    if (value === '') {
+      setForm(prev => ({ ...prev, empresa: '' }));
+      return;
+    }
+    const num = Number(value);
+    setForm(prev => ({ ...prev, empresa: Number.isFinite(num) ? num : '' }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -63,6 +94,11 @@ const UsuariosPage: React.FC = () => {
       return;
     }
 
+    if (form.empresa === '' || !Number.isFinite(Number(form.empresa))) {
+      setError('La empresa es obligatoria');
+      return;
+    }
+
     if (!editingId && !form.password) {
       setError('La contraseña es obligatoria para nuevos usuarios');
       return;
@@ -71,13 +107,14 @@ const UsuariosPage: React.FC = () => {
     try {
       if (!editingId) {
         // Crear nuevo usuario
-        await createUser(form.username, form.role, form.password);
+        await createUser(form.username, form.role, form.password, Number(form.empresa));
         setSuccess('Usuario creado correctamente');
       } else {
         // Actualizar usuario (sin cambiar contraseña aquí)
         await updateUser(editingId, {
           username: form.username,
           role: form.role,
+          empresa: Number(form.empresa),
         });
         setSuccess('Usuario actualizado correctamente');
       }
@@ -98,12 +135,13 @@ const UsuariosPage: React.FC = () => {
       username: user.username,
       role: user.role,
       password: '', // no mostramos ni editamos la contraseña aquí
+      empresa: user.empresa ?? '',
     });
   };
 
   const handleDelete = async (user: StoredUser) => {
     resetMessages();
-    if (!window.confirm(`¿Eliminar usuario \"${user.username}\"?`)) return;
+    if (!window.confirm(`¿Eliminar usuario "${user.username}"?`)) return;
     try {
       await deleteUser(user.id);
       setSuccess('Usuario eliminado correctamente');
@@ -202,6 +240,25 @@ const UsuariosPage: React.FC = () => {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="empresa">
+                  Empresa
+                </label>
+                <select
+                  id="empresa"
+                  value={form.empresa === '' ? '' : String(form.empresa)}
+                  onChange={e => handleEmpresaChange(e.target.value)}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="">Seleccione empresa...</option>
+                  {empresas.map((e) => (
+                    <option key={e._id || e.code} value={e.code}>
+                      {e.code} - {e.nombre}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {!editingId && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="password">
@@ -245,6 +302,7 @@ const UsuariosPage: React.FC = () => {
                 <thead>
                   <tr className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     <th className="px-3 py-2">Usuario</th>
+                    <th className="px-3 py-2">Empresa</th>
                     <th className="px-3 py-2">Rol</th>
                     <th className="px-3 py-2 text-right">Acciones</th>
                   </tr>
@@ -253,6 +311,9 @@ const UsuariosPage: React.FC = () => {
                   {users.map(user => (
                     <tr key={user.id} className="border-t border-gray-100">
                       <td className="px-3 py-2 text-gray-800">{user.username}</td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {empresaByCode[user.empresa] || user.empresa}
+                      </td>
                       <td className="px-3 py-2">
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                           {user.role === 'superAdmin' ? 'Superadmin' : 'User'}
@@ -285,7 +346,7 @@ const UsuariosPage: React.FC = () => {
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="px-3 py-4 text-center text-gray-500 text-sm">
+                      <td colSpan={4} className="px-3 py-4 text-center text-gray-500 text-sm">
                         No hay usuarios registrados.
                       </td>
                     </tr>

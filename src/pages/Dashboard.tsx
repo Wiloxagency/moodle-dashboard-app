@@ -5,6 +5,7 @@ import StatisticsCards from '../components/StatisticsCards';
 import CourseTable from '../components/CourseTable';
 import { dashboardApi, type DashboardCache, type DashboardInscripcion } from '../services/dashboard';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
+import { useAuth } from '../context/AuthContext';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -53,6 +54,9 @@ const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [modalidades, setModalidades] = useState<string[]>([]);
 
+  const { user } = useAuth();
+  const empresaCode = user?.empresa;
+
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedModalidades, setSelectedModalidades] = useState<string[]>([]);
   const [selectedCursos, setSelectedCursos] = useState<string[]>([]);
@@ -91,7 +95,12 @@ const Dashboard: React.FC = () => {
       .catch(() => setModalidades([]));
   }, []);
 
-  const inscripciones: DashboardInscripcion[] = cache?.inscripciones || [];
+  const inscripciones: DashboardInscripcion[] = useMemo(() => {
+    const rows = cache?.inscripciones || [];
+    if (empresaCode === undefined || empresaCode === null) return rows;
+    const target = Number(empresaCode);
+    return rows.filter((ins) => Number(ins.empresa) === target);
+  }, [cache, empresaCode]);
 
   const monthOptions = useMemo(() => {
     const set = new Set<string>();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
 import { type Inscripcion } from '../services/inscripciones';
 import { apiService } from '../services/api';
@@ -11,6 +11,9 @@ interface Props {
   onCancel: () => void;
   onSave: (data: Inscripcion) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  empresaByCode?: Record<number, string>;
+  empresaByName?: Record<string, number>;
+  defaultEmpresaCode?: number;
 }
 
 const empty: Inscripcion = {
@@ -19,7 +22,7 @@ const empty: Inscripcion = {
   // Mantener campos requeridos por el tipo, aunque no se editen en UI
   codigoCurso: '',
   statusAlumnos: 'Pendiente',
-  empresa: 'Mutual',
+  empresa: 0,
   codigoSence: undefined,
   ordenCompra: undefined,
   idSence: undefined,
@@ -59,7 +62,7 @@ const toISODate = (display: string) => {
   return `${yy}-${mm}-${dd}T00:00:00.000Z`;
 };
 
-const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete }) => {
+const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, empresaByCode, empresaByName, defaultEmpresaCode }) => {
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -74,12 +77,37 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
   const isEditing = Boolean(initial && (initial as any)._id);
 
+  const normalizeEmpresaCode = (value: any): number | undefined => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const raw = String(value).trim();
+    if (!raw) return undefined;
+    const num = Number(raw);
+    if (Number.isFinite(num)) return num;
+    const mapped = empresaByName?.[raw.toLowerCase()];
+    if (mapped !== undefined) return mapped;
+    return undefined;
+  };
+
+  const empresaLabel = useMemo(() => {
+    const normalized = normalizeEmpresaCode(form.empresa);
+    if (normalized !== undefined && empresaByCode?.[normalized]) return empresaByCode[normalized];
+    if (form.empresa !== undefined && form.empresa !== null && form.empresa !== '') return String(form.empresa);
+    return '';
+  }, [form.empresa, empresaByCode]);
+
   useEffect(() => {
-    const newState = { ...empty, ...(initial as any) };
+    const newState = { ...empty, ...(initial as any) } as any;
+    const normalizedEmpresa = normalizeEmpresaCode(newState.empresa);
+    if (normalizedEmpresa !== undefined) {
+      newState.empresa = normalizedEmpresa;
+    } else if (newState.empresa === undefined || newState.empresa === null || newState.empresa === '') {
+      if (defaultEmpresaCode !== undefined) newState.empresa = defaultEmpresaCode;
+    }
     setForm(newState);
     setInicioStr(toDisplayDate(newState.inicio));
     setTerminoStr(toDisplayDate(newState.termino));
-  }, [initial]);
+  }, [initial, defaultEmpresaCode, empresaByName]);
 
   useEffect(() => {
     let mounted = true;
@@ -104,7 +132,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numeric = ['numAlumnosInscritos', 'valorInicial', 'correlativo'];
+    const numeric = ['numAlumnosInscritos', 'valorInicial', 'correlativo', 'empresa'];
     setForm((f) => ({
       ...f,
       [name]: numeric.includes(name) ? (value === '' ? (undefined as any) : Number(value)) : value,
@@ -172,6 +200,13 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
       if (!payload.statusAlumnos || String(payload.statusAlumnos).trim() === '') {
         payload.statusAlumnos = 'Pendiente';
       }
+      // Normalizar empresa a número
+      const normalizedEmpresa = normalizeEmpresaCode(payload.empresa);
+      if (normalizedEmpresa !== undefined) {
+        payload.empresa = normalizedEmpresa;
+      } else if (defaultEmpresaCode !== undefined) {
+        payload.empresa = defaultEmpresaCode;
+      }
       // Validar fecha de inicio provista desde el input de texto
       if (!payload.inicio && inicioStr) {
         const iso = toISODate(inicioStr);
@@ -210,7 +245,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete 
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Empresa</label>
-          <input name="empresa" value={form.empresa} onChange={change} className="mt-1 w-full border rounded px-3 py-2 bg-gray-100" disabled />
+          <input name="empresa" value={empresaLabel} onChange={change} className="mt-1 w-full border rounded px-3 py-2 bg-gray-100" disabled />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">N° Correlativo <span className="text-red-500">*</span></label>

@@ -6,12 +6,14 @@ export interface StoredUser {
   id: string;
   username: string;
   role: Role;
+  empresa: number;
 }
 
 interface ApiUser {
   _id: string;
   username: string;
   role: Role;
+  empresa: number;
 }
 
 const BASE_URL = config.apiBaseUrl;
@@ -21,6 +23,7 @@ function mapUser(apiUser: ApiUser): StoredUser {
     id: apiUser._id,
     username: apiUser.username,
     role: apiUser.role,
+    empresa: apiUser.empresa,
   };
 }
 
@@ -68,17 +71,17 @@ export async function loginUser(username: string, password: string): Promise<Sto
   }
 }
 
-export async function createUser(username: string, role: Role, password: string): Promise<StoredUser> {
+export async function createUser(username: string, role: Role, password: string, empresa: number): Promise<StoredUser> {
   const user = await request<ApiUser>('/users', {
     method: 'POST',
-    body: JSON.stringify({ username, role, password }),
+    body: JSON.stringify({ username, role, password, empresa }),
   });
   return mapUser(user);
 }
 
 export async function updateUser(
   id: string,
-  data: Partial<Pick<StoredUser, 'username' | 'role'>>,
+  data: Partial<Pick<StoredUser, 'username' | 'role' | 'empresa'>>,
 ): Promise<StoredUser> {
   const user = await request<ApiUser>(`/users/${id}`, {
     method: 'PUT',

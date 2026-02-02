@@ -8,7 +8,7 @@ export interface Inscripcion {
   // Nuevos obligatorios
   correlativo: number;
   codigoCurso: string;
-  empresa: string; // Valor fijo: "Mutual"
+  empresa: number; // Código de empresa
 
   // Opcionales/Existentes
   codigoSence?: string;
@@ -42,8 +42,9 @@ export const inscripcionesApi = {
     return json.data || [];
   },
   async create(payload: Partial<Inscripcion>): Promise<Inscripcion> {
-    // Asegurar empresa por defecto y no enviar numeroInscripcion cuando se crea
-    const body = { ...payload, empresa: 'Mutual' } as any;
+    // No enviar numeroInscripcion cuando se crea
+    const body = { ...payload } as any;
+    if (body.empresa !== undefined) body.empresa = Number(body.empresa);
     if (!body.numeroInscripcion) delete body.numeroInscripcion;
     const res = await fetch(BASE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) {
@@ -60,7 +61,9 @@ export const inscripcionesApi = {
     return json.data!;
   },
   async update(id: string, payload: Partial<Inscripcion>): Promise<Inscripcion> {
-    const res = await fetch(`${BASE}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const body = { ...payload } as any;
+    if (body.empresa !== undefined) body.empresa = Number(body.empresa);
+    const res = await fetch(`${BASE}/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error('Error updating inscripción');
     const json: ApiResponse<Inscripcion> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');

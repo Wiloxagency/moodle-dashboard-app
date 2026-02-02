@@ -11,6 +11,7 @@ export interface DashboardInscripcion {
   numeroInscripcion: number | string;
   idMoodle?: string;
   correlativo?: number;
+  empresa?: number;
   nombreCurso?: string;
   modalidad?: string;
   inicio?: string;

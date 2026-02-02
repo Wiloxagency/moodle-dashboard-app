@@ -1,26 +1,70 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import InscripcionesTable from '../components/InscripcionesTable';
 import InscripcionForm from '../components/InscripcionForm';
 import { inscripcionesApi, type Inscripcion } from '../services/inscripciones';
 import { participantesApi } from '../services/participantes';
+import { empresasApi, type Empresa } from '../services/empresas';
+import { useAuth } from '../context/AuthContext';
 
 const Inscripciones: React.FC = () => {
-  const [data, setData] = useState<Inscripcion[]>([]);
+  const { user } = useAuth();
+  const empresaCode = user?.empresa;
+
+  const [allData, setAllData] = useState<Inscripcion[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Partial<Inscripcion> | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+
+  const empresaByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const e of empresas) map[e.code] = e.nombre;
+    return map;
+  }, [empresas]);
+
+  const empresaByName = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of empresas) {
+      const key = (e.nombre || '').trim().toLowerCase();
+      if (key) map[key] = e.code;
+    }
+    return map;
+  }, [empresas]);
+
+  const normalizeEmpresaCode = (value: any): number | undefined => {
+    if (value === undefined || value === null || value === '') return undefined;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    const raw = String(value).trim();
+    if (!raw) return undefined;
+    const num = Number(raw);
+    if (Number.isFinite(num)) return num;
+    const mapped = empresaByName[raw.toLowerCase()];
+    if (mapped !== undefined) return mapped;
+    return undefined;
+  };
+
+  const data = useMemo(() => {
+    const rows = [...allData];
+    if (empresaCode === undefined || empresaCode === null) return rows;
+    const target = Number(empresaCode);
+    if (!Number.isFinite(target)) return rows;
+    return rows.filter((item) => normalizeEmpresaCode(item.empresa) === target);
+  }, [allData, empresaCode, empresaByName]);
 
   const load = async () => {
     const items = await inscripcionesApi.list();
-    setData(items);
-    try {
-      const c = await participantesApi.counts(items.map(i => i.numeroInscripcion));
-      setCounts(c);
-    } catch (e) {
-      console.warn('Failed to fetch participant counts', e);
-    }
+    setAllData(items);
     // cache for perceived performance
     sessionStorage.setItem('inscripcionesCache', JSON.stringify(items));
+  };
+
+  const loadEmpresas = async () => {
+    try {
+      const items = await empresasApi.list();
+      setEmpresas(items);
+    } catch (e) {
+      console.warn('Failed to fetch empresas', e);
+    }
   };
 
   useEffect(() => {
@@ -29,12 +73,22 @@ const Inscripciones: React.FC = () => {
     if (cached) {
       try {
         const parsed = JSON.parse(cached) as Inscripcion[];
-        setData(parsed);
-        participantesApi.counts(parsed.map(i => i.numeroInscripcion)).then(setCounts).catch(() => {});
+        setAllData(parsed);
       } catch {}
     }
     load();
+    loadEmpresas();
   }, []);
+
+  useEffect(() => {
+    if (!data.length) {
+      setCounts({});
+      return;
+    }
+    participantesApi.counts(data.map(i => i.numeroInscripcion))
+      .then(setCounts)
+      .catch((e) => console.warn('Failed to fetch participant counts', e));
+  }, [data]);
 
   const handleSave = async (payload: Inscripcion) => {
     if (editing && editing._id) {
@@ -76,7 +130,13 @@ const Inscripciones: React.FC = () => {
       next++;
     }
 
-    setEditing({ numeroInscripcion: next });
+    const nextEditing: Partial<Inscripcion> = { numeroInscripcion: next };
+    if (empresaCode !== undefined && empresaCode !== null) {
+      const normalized = Number(empresaCode);
+      if (Number.isFinite(normalized)) nextEditing.empresa = normalized;
+    }
+
+    setEditing(nextEditing);
     setShowForm(true);
   };
 
@@ -94,6 +154,7 @@ const Inscripciones: React.FC = () => {
             participantCounts={counts} 
             onNew={openForNew} 
             onEdit={openForEdit} 
+            empresaByCode={empresaByCode}
           />
         </div>
       </div>
@@ -110,6 +171,9 @@ const Inscripciones: React.FC = () => {
               onCancel={() => { setShowForm(false); setEditing(null); }} 
               onSave={handleSave}
               onDelete={editing && editing._id ? handleDelete : undefined}
+              empresaByCode={empresaByCode}
+              empresaByName={empresaByName}
+              defaultEmpresaCode={empresaCode}
             />
           </div>
         </div>

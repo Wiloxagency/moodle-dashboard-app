@@ -8,6 +8,7 @@ interface Props {
   participantCounts?: Record<string, number>;
   onNew?: () => void;
   onEdit?: (item: Inscripcion) => void;
+  empresaByCode?: Record<number, string>;
 }
 
 type SortKey =
@@ -27,7 +28,7 @@ type SortKey =
   | 'numAlumnosInscritos'
   | 'valorInicial'
 
-const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit }) => {
+const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit, empresaByCode = {} }) => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
   const [perPage, setPerPage] = useState(25);
@@ -61,6 +62,19 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
 
   const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('es-CL') : '-';
 
+  const getEmpresaLabel = (empresa: any): string => {
+    if (empresa === undefined || empresa === null || empresa === '') return '';
+    if (typeof empresa === 'number' && Number.isFinite(empresa)) {
+      return empresaByCode[empresa] || String(empresa);
+    }
+    const raw = String(empresa).trim();
+    const num = Number(raw);
+    if (Number.isFinite(num)) {
+      return empresaByCode[num] || raw;
+    }
+    return raw;
+  };
+
   // Filtering
   const filtered = useMemo(() => {
     if (!filter.trim()) return data;
@@ -69,13 +83,14 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
       String(r.numeroInscripcion || '').toLowerCase().includes(q) ||
       String(r.correlativo || '').toLowerCase().includes(q) ||
       (r.codigoSence || '').toLowerCase().includes(q) ||
-      (r.empresa || '').toLowerCase().includes(q) ||
+      getEmpresaLabel(r.empresa).toLowerCase().includes(q) ||
+      String(r.empresa || '').toLowerCase().includes(q) ||
       (r.nombreCurso || '').toLowerCase().includes(q) ||
       (r.ejecutivo || '').toLowerCase().includes(q) ||
       (r.idMoodle || '').toLowerCase().includes(q) ||
       (r.idSence || '').toLowerCase().includes(q)
     );
-  }, [data, filter]);
+  }, [data, filter, empresaByCode]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -90,6 +105,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
           case 'termino': return a.termino ? new Date(a.termino).getTime() || 0 : 0;
           case 'numeroInscripcion': return parseInt(a.numeroInscripcion as any, 10) || 0;
           case 'correlativo': return a.correlativo || 0;
+          case 'empresa': return getEmpresaLabel(a.empresa).toLowerCase();
           default: return (a as any)[key]?.toString()?.toLowerCase?.() ?? '';
         }
       };
@@ -101,6 +117,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
           case 'termino': return b.termino ? new Date(b.termino).getTime() || 0 : 0;
           case 'numeroInscripcion': return parseInt(b.numeroInscripcion as any, 10) || 0;
           case 'correlativo': return b.correlativo || 0;
+          case 'empresa': return getEmpresaLabel(b.empresa).toLowerCase();
           default: return (b as any)[key]?.toString()?.toLowerCase?.() ?? '';
         }
       };
@@ -111,7 +128,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
       return 0;
     });
     return arr;
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, sortKey, sortDir, empresaByCode]);
 
   // Pagination
   const total = sorted.length;
@@ -182,7 +199,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.ordenCompra || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.idSence || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[130px]">{r.idMoodle || '-'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={r.empresa}>{r.empresa}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={getEmpresaLabel(r.empresa)}>{getEmpresaLabel(r.empresa)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[300px] truncate" title={r.nombreCurso}>{r.nombreCurso}</td>
                   <td className="px-4 py-3 whitespace-nowrap min-w-[120px]">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getModalidadColor(r.modalidad)}`}>

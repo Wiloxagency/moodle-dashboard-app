@@ -117,12 +117,6 @@ const LoginPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-4 text-xs text-gray-400">
-          <p>Usuarios de ejemplo:</p>
-          <p><strong>superadmin / 123456</strong> (superAdmin)</p>
-          <p><strong>admin / 123456</strong> (admin)</p>
-          <p><strong>usuario / 123456</strong> (user)</p>
-        </div>
       </div>
     </div>
   );
