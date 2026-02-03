@@ -33,7 +33,6 @@ const CourseTable: React.FC<Props> = ({ data, loading, error }) => {
           Reporte de Avances
         </Link>
       </div>
-      
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-blue-600 text-white">

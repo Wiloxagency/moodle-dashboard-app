@@ -4,6 +4,8 @@ import Sidebar from '../components/Sidebar';
 import StatisticsCards from '../components/StatisticsCards';
 import CourseTable from '../components/CourseTable';
 import { dashboardApi, type DashboardCache, type DashboardInscripcion } from '../services/dashboard';
+import { inscripcionesApi } from '../services/inscripciones';
+import config from '../config/environment';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { useAuth } from '../context/AuthContext';
 
@@ -53,6 +55,10 @@ const Dashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalidades, setModalidades] = useState<string[]>([]);
+
+  const [reportUpdating, setReportUpdating] = useState(false);
+  const [reportStatus, setReportStatus] = useState<string | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const { user } = useAuth();
   const empresaCode = user?.empresa;
@@ -206,6 +212,58 @@ const Dashboard: React.FC = () => {
     setEstadoCurso((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const isActiveForReport = (termino?: string) => {
+    if (!termino) return true;
+    const end = new Date(termino);
+    if (isNaN(end.getTime())) return true;
+    end.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return end.getTime() >= today.getTime();
+  };
+
+  const handleActualizar = async () => {
+    if (reportUpdating || refreshing || loading) return;
+    setReportUpdating(true);
+    setReportError(null);
+    setReportStatus(null);
+    try {
+      const allIns = await inscripcionesApi.list();
+      const targetEmpresa = empresaCode == null ? null : Number(empresaCode);
+      const filtered = targetEmpresa == null || !Number.isFinite(targetEmpresa)
+        ? allIns
+        : allIns.filter((ins) => Number(ins.empresa) === targetEmpresa);
+
+      const activeIns = filtered.filter((ins) => isActiveForReport(ins.termino));
+      const total = activeIns.length;
+      if (!total) {
+        setReportStatus('No hay inscripciones activas para actualizar.');
+      } else {
+        let current = 0;
+        for (const ins of activeIns) {
+          current += 1;
+          setReportStatus(`Procesando ${current} de ${total} inscripciones...`);
+          const num = ins.numeroInscripcion;
+          const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(String(num))}/grades-numeric`;
+          const res = await fetch(url, { cache: 'no-store' });
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text || `Error generando reporte para inscripción ${num}`);
+          }
+          const json = await res.json();
+          if (!json.success) throw new Error(json.error?.message || `Error generando reporte para inscripción ${num}`);
+        }
+        setReportStatus(`Reporte actualizado para ${total} inscripciones.`);
+      }
+
+      await loadCache(true);
+    } catch (e: any) {
+      setReportError(e?.message || 'Error generando reporte de avances');
+    } finally {
+      setReportUpdating(false);
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-64px)]">
       <Sidebar
@@ -230,16 +288,22 @@ const Dashboard: React.FC = () => {
             <div className="flex items-center justify-end gap-3 text-sm text-gray-600">
               <span>Última actualización: {formatUpdatedAt(cache?.updatedAt)}</span>
               <button
-                onClick={() => loadCache(true)}
-                disabled={refreshing || loading}
+                onClick={handleActualizar}
+                disabled={refreshing || loading || reportUpdating}
                 className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Actualizar métricas"
               >
-                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? 'Actualizando...' : 'Actualizar'}
+                <RefreshCw className={`w-4 h-4 ${(refreshing || reportUpdating) ? 'animate-spin' : ''}`} />
+                {(refreshing || reportUpdating) ? 'Actualizando...' : 'Actualizar'}
               </button>
             </div>
           </div>
+          {reportError && (
+            <div className="mb-4 w-full max-w-[1150px] mx-auto text-sm text-red-600">{reportError}</div>
+          )}
+          {reportStatus && !reportError && (
+            <div className="mb-4 w-full max-w-[1150px] mx-auto text-sm text-gray-600">{reportStatus}</div>
+          )}
 
           <div className="mb-8 w-full max-w-[1150px] mx-auto">
             <StatisticsCards items={filteredInscripciones} loading={loading} error={error} />

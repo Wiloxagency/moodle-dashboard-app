@@ -92,7 +92,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   const empresaLabel = useMemo(() => {
     const normalized = normalizeEmpresaCode(form.empresa);
     if (normalized !== undefined && empresaByCode?.[normalized]) return empresaByCode[normalized];
-    if (form.empresa !== undefined && form.empresa !== null && form.empresa !== '') return String(form.empresa);
+    if (form.empresa !== undefined && form.empresa !== null && form.empresa !== 0) return String(form.empresa);
     return '';
   }, [form.empresa, empresaByCode]);
 
