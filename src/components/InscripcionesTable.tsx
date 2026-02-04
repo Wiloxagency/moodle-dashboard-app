@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Users, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Inscripcion } from '../services/inscripciones';
+import { empresasApi } from '../services/empresas';
+import { ejecutivosApi } from '../services/ejecutivos';
+import { modalidadesApi } from '../services/modalidades';
 
 interface Props {
   data: Inscripcion[];
@@ -38,6 +41,39 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>('numeroInscripcion');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  
+  // Mapas para convertir códigos a nombres
+  const [empresasMap, setEmpresasMap] = useState<Map<number, string>>(new Map());
+  const [ejecutivosMap, setEjecutivosMap] = useState<Map<number, string>>(new Map());
+  const [modalidadesMap, setModalidadesMap] = useState<Map<number, string>>(new Map());
+
+  // Cargar mapas al montar el componente
+  useEffect(() => {
+    const loadMaps = async () => {
+      try {
+        const [empresas, ejecutivos, modalidades] = await Promise.all([
+          empresasApi.list(),
+          ejecutivosApi.list(),
+          modalidadesApi.list()
+        ]);
+
+        const empMap = new Map<number, string>();
+        empresas.forEach(e => empMap.set(e.code, e.nombre));
+        setEmpresasMap(empMap);
+
+        const ejMap = new Map<number, string>();
+        ejecutivos.forEach(ej => ejMap.set(ej.code, `${ej.nombres} ${ej.apellidos}`.trim()));
+        setEjecutivosMap(ejMap);
+
+        const modMap = new Map<number, string>();
+        modalidades.forEach(m => modMap.set(m.code, m.nombre || ''));
+        setModalidadesMap(modMap);
+      } catch (err) {
+        console.error('Error cargando mapas de códigos:', err);
+      }
+    };
+    loadMaps();
+  }, []);
 
   const requestSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -47,6 +83,22 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
       setSortDir('asc');
     }
     setPage(1);
+  };
+
+  // Funciones para convertir códigos a nombres
+  const getEmpresaNombre = (empresaCode: string): string => {
+    const code = parseInt(empresaCode, 10);
+    return empresasMap.get(code) || empresaCode;
+  };
+
+  const getEjecutivoNombre = (ejecutivoCode: string): string => {
+    const code = parseInt(ejecutivoCode, 10);
+    return ejecutivosMap.get(code) || ejecutivoCode;
+  };
+
+  const getModalidadNombre = (modalidadCode: string): string => {
+    const code = parseInt(modalidadCode, 10);
+    return modalidadesMap.get(code) || modalidadCode;
   };
 
   const getModalidadColor = (modalidad: string) => {
@@ -205,6 +257,12 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
               const diferencia = (r.valorFinal ?? 0) - (r.valorInicial ?? 0);
               const diffColor = diferencia === 0 ? 'text-gray-700' : diferencia < 0 ? 'text-green-700' : 'text-red-700';
               const rowNumber = start + idx + 1;
+              
+              // Convertir códigos a nombres
+              const empresaNombre = getEmpresaNombre(r.empresa);
+              const ejecutivoNombre = getEjecutivoNombre(r.ejecutivo);
+              const modalidadNombre = getModalidadNombre(r.modalidad);
+              
               return (
                 <tr key={`${r.numeroInscripcion}-${rowNumber}`} className="hover:bg-gray-50 cursor-pointer" onClick={() => onEdit && onEdit(r)}>
                   <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
@@ -214,17 +272,17 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.ordenCompra || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.idSence || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[130px]">{r.idMoodle || '-'}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={r.empresa}>{r.empresa}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={empresaNombre}>{empresaNombre}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.codigoCurso}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[300px] truncate" title={r.nombreCurso}>{r.nombreCurso}</td>
                   <td className="px-4 py-3 whitespace-nowrap min-w-[120px]">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getModalidadColor(r.modalidad)}`}>
-                      {r.modalidad}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getModalidadColor(modalidadNombre)}`}>
+                      {modalidadNombre}
                     </span>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatDate(r.inicio)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{formatDate(r.termino)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{r.ejecutivo}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{ejecutivoNombre}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[130px]">{participantCounts[r.numeroInscripcion] ?? r.numAlumnosInscritos}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[110px]">{formatCurrency(r.valorInicial)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">{formatCurrency(r.valorFinal)}</td>

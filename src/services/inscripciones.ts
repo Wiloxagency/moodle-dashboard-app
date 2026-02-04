@@ -8,7 +8,7 @@ export interface Inscripcion {
   // Nuevos obligatorios
   correlativo: number;
   codigoCurso: string;
-  empresa: string; // Valor fijo: "Mutual"
+  empresa: string; // Code de la empresa
 
   // Opcionales/Existentes
   codigoSence?: string;
@@ -42,8 +42,8 @@ export const inscripcionesApi = {
     return json.data || [];
   },
   async create(payload: Partial<Inscripcion>): Promise<Inscripcion> {
-    // Asegurar empresa por defecto y no enviar numeroInscripcion cuando se crea
-    const body = { ...payload, empresa: 'Mutual' } as any;
+    // No enviar numeroInscripcion cuando se crea (lo genera el backend)
+    const body = { ...payload } as any;
     if (!body.numeroInscripcion) delete body.numeroInscripcion;
     const res = await fetch(BASE, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error('Error creating inscripción');
