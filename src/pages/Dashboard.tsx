@@ -2,6 +2,7 @@ import React from 'react';
 import Sidebar from '../components/Sidebar';
 import StatisticsCards from '../components/StatisticsCards';
 import CourseTable from '../components/CourseTable';
+import ExportarInscripciones from '../components/ExportarInscripciones';
 
 const Dashboard: React.FC = () => {
   return (
@@ -15,6 +16,11 @@ const Dashboard: React.FC = () => {
           {/* Statistics Cards */}
           <div className="mb-8 w-full max-w-[1150px] mx-auto">
             <StatisticsCards />
+          </div>
+          
+          {/* Exportar Inscripciones */}
+          <div className="mb-8 w-full max-w-[1150px] mx-auto">
+            <ExportarInscripciones />
           </div>
           
           {/* Course Table */}

@@ -26,6 +26,7 @@ export interface Inscripcion {
   valorFinal?: number;
   statusAlumnos: 'Pendiente' | 'En curso' | 'Finalizado';
   comentarios?: string;
+  ficha?: string;
 }
 
 interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string } }

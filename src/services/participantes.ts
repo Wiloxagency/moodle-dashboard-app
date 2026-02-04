@@ -6,6 +6,7 @@ export interface Participante {
   nombres: string;
   apellidos: string;
   rut: string;
+  rutkey?: string; // Generado automáticamente por el backend
   mail: string;
   telefono?: string;
   valorCobrado?: number;
