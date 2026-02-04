@@ -339,24 +339,6 @@ const ExportarInscripciones: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* Instrucciones */}
-        <div className="text-sm text-gray-600 space-y-2">
-          <p className="font-medium">Instrucciones:</p>
-          <ul className="list-disc list-inside space-y-1 pl-2">
-            <li>El archivo debe ser formato Excel (.xlsx)</li>
-            <li>Columnas requeridas: <strong>Ficha, RUT, Nombres, Apellidos, Correo electrónico, Télefono, Valor Cobrado, %Franquicia, Observaciones, Empresa, Curso, ID Moodle, Correlativo, Orden de Compra, Código Sence, ID Sence, Modalidad, F. Inicio, F. Termino, Ejecutivo</strong></li>
-            <li>Los números de inscripción se generan automáticamente por el backend comenzando desde <strong>100100</strong></li>
-            <li>Las <strong>empresas</strong> se crean automáticamente si no existen (solo con nombre y status "Activo")</li>
-            <li>Los participantes con la misma <strong>Ficha</strong> se agrupan en una inscripción</li>
-            <li>El campo <strong>ficha</strong> se guarda exactamente como viene en el Excel (ej: "2506-001")</li>
-            <li>El campo <strong>rutkey</strong> se genera automáticamente (normalización del RUT)</li>
-            <li>El campo <strong>Observaciones</strong> del Excel se asigna a <strong>estadoInscripcion</strong> en la BD</li>
-            <li>Los campos <strong>costoOtic</strong> y <strong>costoEmpresa</strong> se guardan siempre como <strong>null</strong></li>
-            <li>Los campos vacíos o con valor 0 se guardan como cadena vacía</li>
-            <li>Las fechas (F. Inicio, F. Termino) se convierten automáticamente de formato Excel a ISO</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
