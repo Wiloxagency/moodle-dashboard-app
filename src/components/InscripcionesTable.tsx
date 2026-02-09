@@ -59,8 +59,26 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
 
   const formatCurrency = (value: number | undefined) =>
     (value ?? 0).toLocaleString('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+  const parseDateOnly = (value?: string): Date | null => {
+    if (!value) return null;
+    const datePart = value.substring(0, 10);
+    const [y, m, d] = datePart.split('-');
+    if (y && m && d) {
+      const date = new Date(Number(y), Number(m) - 1, Number(d));
+      date.setHours(0, 0, 0, 0);
+      return date;
+    }
+    const fallback = new Date(value);
+    if (isNaN(fallback.getTime())) return null;
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+  };
 
-  const formatDate = (value?: string) => value ? new Date(value).toLocaleDateString('es-CL') : '-';
+  const formatDate = (value?: string) => {
+    const d = parseDateOnly(value);
+    return d ? d.toLocaleDateString('es-CL') : '-';
+  };
+
 
   const getEmpresaLabel = (empresa: any): string => {
     if (empresa === undefined || empresa === null || empresa === '') return '';
@@ -101,8 +119,8 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
         switch (key) {
           case 'secuencial': return 0; // handled by index
                     case 'valorInicial': return a.valorInicial ?? 0;
-          case 'inicio': return new Date(a.inicio).getTime() || 0;
-          case 'termino': return a.termino ? new Date(a.termino).getTime() || 0 : 0;
+          case 'inicio': return parseDateOnly(a.inicio)?.getTime() || 0;
+          case 'termino': return parseDateOnly(a.termino)?.getTime() || 0;
           case 'numeroInscripcion': return parseInt(a.numeroInscripcion as any, 10) || 0;
           case 'correlativo': return a.correlativo || 0;
           case 'empresa': return getEmpresaLabel(a.empresa).toLowerCase();
@@ -113,8 +131,8 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
         switch (key) {
           case 'secuencial': return 0;
                     case 'numAlumnosInscritos': return (participantCounts[b.numeroInscripcion] ?? b.numAlumnosInscritos);
-          case 'inicio': return new Date(b.inicio).getTime() || 0;
-          case 'termino': return b.termino ? new Date(b.termino).getTime() || 0 : 0;
+          case 'inicio': return parseDateOnly(b.inicio)?.getTime() || 0;
+          case 'termino': return parseDateOnly(b.termino)?.getTime() || 0;
           case 'numeroInscripcion': return parseInt(b.numeroInscripcion as any, 10) || 0;
           case 'correlativo': return b.correlativo || 0;
           case 'empresa': return getEmpresaLabel(b.empresa).toLowerCase();

@@ -3,6 +3,7 @@ import Header from './components/Header';
 import Dashboard from './pages/Dashboard';
 import Inscripciones from './pages/Inscripciones';
 import ReporteAvances from './pages/ReporteAvances';
+import Vimica from './pages/Vimica';
 import Participantes from './pages/Participantes';
 import EmpresasPage from './pages/Empresas';
 import ModalidadPage from './pages/Modalidad';
@@ -33,6 +34,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/vimica"
+          element={
+            <ProtectedRoute>
+              <Vimica />
             </ProtectedRoute>
           }
         />

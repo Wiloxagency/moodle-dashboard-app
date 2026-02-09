@@ -6,32 +6,60 @@ interface Props {
   data: DashboardInscripcion[];
   loading?: boolean;
   error?: string | null;
+  showVimicaButton?: boolean;
 }
 
-const CourseTable: React.FC<Props> = ({ data, loading, error }) => {
+const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton }) => {
+  const parseDateOnly = (value?: string): Date | null => {
+    if (!value) return null;
+    const datePart = value.substring(0, 10);
+    const [y, m, d] = datePart.split('-');
+    if (y && m && d) {
+      const date = new Date(Number(y), Number(m) - 1, Number(d));
+      date.setHours(0, 0, 0, 0);
+      return date;
+    }
+    const fallback = new Date(value);
+    if (isNaN(fallback.getTime())) return null;
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+  };
+
   const calculateDaysRemaining = (termino?: string): number | null => {
     if (!termino) return null;
-    const end = new Date(termino);
-    if (isNaN(end.getTime())) return null;
+    const end = parseDateOnly(termino);
+    if (!end) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
     const diffDays = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return diffDays < 0 ? 0 : diffDays;
   };
 
-  const formatISODate = (value?: string): string => (value ? new Date(value).toLocaleDateString('es-CL') : '');
+  const formatISODate = (value?: string): string => {
+    const d = parseDateOnly(value);
+    return d ? d.toLocaleDateString('es-CL') : '';
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm w-full max-w-[1150px] mx-auto">
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-800">Inscripciones de Cursos Activos</h2>
-        <Link
-          to="/reporte-avances"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-        >
-          Reporte de Avances
-        </Link>
+        <div className="flex items-center gap-2">
+          {showVimicaButton && (
+            <Link
+              to="/vimica"
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
+            >
+              Vimica
+            </Link>
+          )}
+          <Link
+            to="/reporte-avances"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            Reporte de Avances
+          </Link>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full">

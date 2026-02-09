@@ -6,7 +6,7 @@ import { empresasApi, type Empresa } from '../services/empresas';
 const EmpresasPage: React.FC = () => {
   const [data, setData] = useState<Empresa[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingCode, setEditingCode] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,38 +28,38 @@ const EmpresasPage: React.FC = () => {
   }, []);
 
   const handleNew = () => {
-    setEditingIndex(null);
+    setEditingCode(null);
     setShowForm(true);
   };
 
-  const handleEdit = (_item: Empresa, index: number) => {
-    setEditingIndex(index);
+  const handleEdit = (item: Empresa) => {
+    setEditingCode(item.code);
     setShowForm(true);
   };
 
   const handleSave = async (payload: EmpresaFormData) => {
-    if (editingIndex == null) {
+    if (editingCode == null) {
       // crear
       const { _id, code, ...rest } = payload;
       const created = await empresasApi.create(rest);
       setData(prev => [...prev, created]);
     } else {
-      const current = data[editingIndex];
-      if (!current || !current._id) return;
+      const current = data.find(item => item.code === editingCode);
+      if (!current || !current._id) {
+        setShowForm(false);
+        setEditingCode(null);
+        return;
+      }
       const { _id, code, ...rest } = payload;
       const updated = await empresasApi.update(current._id, rest);
-      setData(prev => {
-        const copy = [...prev];
-        copy[editingIndex] = updated;
-        return copy;
-      });
+      setData(prev => prev.map(item => (item._id === current._id ? updated : item)));
     }
     setShowForm(false);
-    setEditingIndex(null);
+    setEditingCode(null);
   };
 
   const initial: EmpresaFormData | undefined =
-    editingIndex == null ? undefined : (data[editingIndex] as EmpresaFormData);
+    editingCode == null ? undefined : (data.find(item => item.code === editingCode) as EmpresaFormData);
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
@@ -76,10 +76,10 @@ const EmpresasPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 m-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">
-                {editingIndex == null ? 'Nueva Empresa' : 'Editar Empresa'}
+                {editingCode == null ? 'Nueva Empresa' : 'Editar Empresa'}
               </h3>
               <button
-                onClick={() => { setShowForm(false); setEditingIndex(null); }}
+                onClick={() => { setShowForm(false); setEditingCode(null); }}
                 className="text-gray-500 hover:text-gray-700 text-xl font-bold"
               >
                 ✕
@@ -87,7 +87,7 @@ const EmpresasPage: React.FC = () => {
             </div>
             <EmpresaForm
               initial={initial}
-              onClose={() => { setShowForm(false); setEditingIndex(null); }}
+              onClose={() => { setShowForm(false); setEditingCode(null); }}
               onSave={handleSave}
             />
           </div>

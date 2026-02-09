@@ -4,7 +4,7 @@ import type { EmpresaFormData } from './EmpresaForm';
 interface Props {
   data: EmpresaFormData[];
   onNew?: () => void;
-  onEdit?: (item: EmpresaFormData, index: number) => void;
+  onEdit?: (item: EmpresaFormData) => void;
 }
 
 type SortKey =
@@ -110,8 +110,7 @@ const EmpresaTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
           <table className="w-full">
             <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('code')}>Code <SortIcon col="code" /></th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('code')}>Code <SortIcon col="code" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('nombre')}>Nombre <SortIcon col="nombre" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('holding')}>Holding <SortIcon col="holding" /></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" onClick={() => requestSort('rut')}>RUT <SortIcon col="rut" /></th>
@@ -123,15 +122,13 @@ const EmpresaTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {pageRows.map((r, idx) => {
-                const rowNumber = start + idx + 1;
+              {pageRows.map((r) => {
                 return (
                   <tr
-                    key={`${r.rut || r.nombre}-${rowNumber}`}
+                    key={`${(r as any)._id || (r as any).code || r.rut || r.nombre}`}
                     className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => onEdit && onEdit(r, rowNumber - 1)}
+                    onClick={() => onEdit && onEdit(r)}
                   >
-                    <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{(r as any).code ?? '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.nombre}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.holding || '-'}</td>

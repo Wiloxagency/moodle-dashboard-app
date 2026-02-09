@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { reportesApi, type ReporteAvanceRow } from '../services/reportes';
+import { useAuth } from '../context/AuthContext';
+
 
 const formatDateInput = (date: Date) => {
   const dd = String(date.getDate()).padStart(2, '0');
@@ -23,23 +25,30 @@ const parseDateInput = (value: string): Date | null => {
 
 const parseISODate = (value?: string): Date | null => {
   if (!value) return null;
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return null;
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const datePart = value.substring(0, 10);
+  const [y, m, d] = datePart.split('-');
+  if (y && m && d) {
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  const fallback = new Date(value);
+  if (isNaN(fallback.getTime())) return null;
+  fallback.setHours(0, 0, 0, 0);
+  return fallback;
 };
 
 const formatDate = (value?: string) => {
-  if (!value) return '';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return '';
+  const d = parseISODate(value);
+  if (!d) return '';
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
   const yyyy = String(d.getFullYear());
   return `${dd}/${mm}/${yyyy}`;
 };
-
 const ReporteAvances: React.FC = () => {
+  const { user } = useAuth();
+  const empresaCode = user?.empresa;
   const [data, setData] = useState<ReporteAvanceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,8 +90,14 @@ const ReporteAvances: React.FC = () => {
   const fromDate = useMemo(() => (dateFrom ? parseDateInput(dateFrom) : null), [dateFrom]);
   const toDate = useMemo(() => (dateTo ? parseDateInput(dateTo) : null), [dateTo]);
 
+  const empresaFiltered = useMemo(() => {
+    if (empresaCode === undefined || empresaCode === null) return data;
+    const target = String(empresaCode);
+    return data.filter((row) => String(row.empresa ?? '') === target);
+  }, [data, empresaCode]);
+
   const filteredRows = useMemo(() => {
-    let rows = [...data];
+    let rows = [...empresaFiltered];
 
     if (mode === 'active') {
       rows = rows.filter((row) => {
@@ -144,7 +159,7 @@ const ReporteAvances: React.FC = () => {
     }
 
     return rows;
-  }, [data, mode, fromDate, toDate, sortKey, today]);
+  }, [empresaFiltered, mode, fromDate, toDate, sortKey, today]);
 
   const exportRows = useMemo(() => {
     return filteredRows.map((row) => ({
@@ -212,7 +227,8 @@ const ReporteAvances: React.FC = () => {
       const a = document.createElement('a');
       a.href = url;
       const todayFile = new Date();
-      a.download = `reporte-avance-mutual-${todayFile.toISOString().slice(0, 10)}.xlsx`;
+      const suffix = empresaCode === undefined || empresaCode === null ? 'general' : `empresa-${empresaCode}`;
+      a.download = `reporte-avance-${suffix}-${todayFile.toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -233,7 +249,7 @@ const ReporteAvances: React.FC = () => {
           <div className="bg-white rounded-lg shadow-sm">
             <div className="px-6 py-4 border-b border-gray-200 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-800">Reporte de Avance Mutual</h2>
+                <h2 className="text-lg font-semibold text-gray-800">Reporte de Avances</h2>
                 {generatedAt && (
                   <p className="text-xs text-gray-500">Generado: {formatDate(generatedAt)}</p>
                 )}

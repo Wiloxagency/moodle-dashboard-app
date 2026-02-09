@@ -16,6 +16,22 @@ const MONTHS = [
 
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase();
 
+
+const parseDateOnly = (value?: string): Date | null => {
+  if (!value) return null;
+  const datePart = value.substring(0, 10);
+  const [y, m, d] = datePart.split('-');
+  if (y && m && d) {
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  const fallback = new Date(value);
+  if (isNaN(fallback.getTime())) return null;
+  fallback.setHours(0, 0, 0, 0);
+  return fallback;
+};
+
 const formatUpdatedAt = (value?: string) => {
   if (!value) return 'Sin actualizar';
   const d = new Date(value);
@@ -41,9 +57,8 @@ const getModalidadLabel = (m: Modalidad) => {
 
 const isActiveCourse = (termino?: string) => {
   if (!termino) return true;
-  const end = new Date(termino);
-  if (isNaN(end.getTime())) return true;
-  end.setHours(0, 0, 0, 0);
+  const end = parseDateOnly(termino);
+  if (!end) return true;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return end.getTime() >= today.getTime();
@@ -62,6 +77,7 @@ const Dashboard: React.FC = () => {
 
   const { user } = useAuth();
   const empresaCode = user?.empresa;
+  const showVimicaButton = Number(empresaCode) === 1;
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedModalidades, setSelectedModalidades] = useState<string[]>([]);
@@ -112,8 +128,8 @@ const Dashboard: React.FC = () => {
     const set = new Set<string>();
     for (const ins of inscripciones) {
       if (!ins.inicio) continue;
-      const d = new Date(ins.inicio);
-      if (isNaN(d.getTime())) continue;
+      const d = parseDateOnly(ins.inicio);
+      if (!d) continue;
       set.add(MONTHS[d.getMonth()]);
     }
     return MONTHS.filter((m) => set.has(m));
@@ -214,9 +230,8 @@ const Dashboard: React.FC = () => {
 
   const isActiveForReport = (termino?: string) => {
     if (!termino) return true;
-    const end = new Date(termino);
-    if (isNaN(end.getTime())) return true;
-    end.setHours(0, 0, 0, 0);
+    const end = parseDateOnly(termino);
+    if (!end) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return end.getTime() >= today.getTime();
@@ -310,7 +325,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           <div className="w-full max-w-[1150px] mx-auto">
-            <CourseTable data={filteredInscripciones} loading={loading} error={error} />
+            <CourseTable data={filteredInscripciones} loading={loading} error={error} showVimicaButton={showVimicaButton} />
           </div>
         </div>
       </div>

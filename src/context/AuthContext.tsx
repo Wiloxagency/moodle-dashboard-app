@@ -6,6 +6,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  setSessionUser: (user: AuthUser | null) => void;
 }
 
 const COOKIE_NAME = 'moodle_dashboard_user';
@@ -45,6 +46,11 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(() => readUserFromCookie());
 
+  const setSessionUser = (nextUser: AuthUser | null) => {
+    setUser(nextUser);
+    writeUserCookie(nextUser);
+  };
+
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       const storedUser = await loginUser(username, password);
@@ -56,8 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: storedUser.role,
         empresa: storedUser.empresa,
       };
-      setUser(nextUser);
-      writeUserCookie(nextUser);
+      setSessionUser(nextUser);
       return true;
     } catch (e) {
       console.error(e);
@@ -66,12 +71,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    setUser(null);
-    writeUserCookie(null);
+    setSessionUser(null);
   };
 
   const value = useMemo(
-    () => ({ user, login, logout }),
+    () => ({ user, login, logout, setSessionUser }),
     [user]
   );
 

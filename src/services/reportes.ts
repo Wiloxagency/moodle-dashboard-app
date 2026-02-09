@@ -18,17 +18,75 @@ export interface ReporteAvanceRow {
   responsable: string;
 }
 
+export interface VimicaPayload {
+  Usuario: string;
+  Token: string;
+  AvanceCursos: Array<{
+    IdCurso: string;
+    RutAlumno: string;
+    PorcentajeAvance: string;
+    PorcentajeAsistenciaAlumno: string;
+    NotaTeorica: string;
+    EstadoTeorica: string;
+    NotaPractica: string;
+    EstadoPractica: string;
+    NotaFinal: string;
+    EstadoCurso: string;
+    Observacion: string;
+  }>;
+}
+
+export interface VimicaResponse {
+  Id: number;
+  Fecha: string;
+  CantidadRegistros: number;
+  RegistrosCargados: number;
+  RegistrosRechazados: number;
+  RegistrosLeidos: number;
+}
+
 interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string }; generatedAt?: string }
 
-const BASE = `${config.apiBaseUrl}/reportes/avances`;
+const AVANCES_URL = `${config.apiBaseUrl}/reportes/avances`;
+const VIMICA_URL = `${config.apiBaseUrl}/reportes/vimica`;
+const VIMICA_SEND_URL = `${config.apiBaseUrl}/reportes/vimica/enviar`;
 
 export const reportesApi = {
   async listAvances(): Promise<{ data: ReporteAvanceRow[]; generatedAt?: string }> {
-    const res = await fetch(BASE);
+    const res = await fetch(AVANCES_URL);
     if (!res.ok) throw new Error('Error fetching reporte de avances');
     const json: ApiResponse<ReporteAvanceRow[]> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
     return { data: json.data || [], generatedAt: json.generatedAt };
+  },
+  async getVimica(): Promise<VimicaPayload> {
+    const res = await fetch(VIMICA_URL);
+    if (!res.ok) throw new Error('Error fetching reporte Vimica');
+    return res.json();
+  },
+  async sendVimica(payload?: VimicaPayload): Promise<VimicaResponse> {
+    const res = await fetch(VIMICA_SEND_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload ? JSON.stringify(payload) : undefined,
+    });
+
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch (_) {
+      json = null;
+    }
+
+    if (!res.ok) {
+      const msg = json?.error?.message || `Error enviando reporte Vimica (${res.status})`;
+      const details = json?.error?.details;
+      const detailText = details ? `: ${typeof details === 'string' ? details : JSON.stringify(details)}` : '';
+      throw new Error(msg + detailText);
+    }
+
+    if (json?.success === false) throw new Error(json.error?.message || 'API error');
+    return (json?.data ?? json) as VimicaResponse;
   }
 };
 
