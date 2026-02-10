@@ -26,6 +26,8 @@ export interface Inscripcion {
   responsable?: string;
   valorFinal?: number;
   statusAlumnos: 'Pendiente' | 'En curso' | 'Finalizado';
+  status?: 'abierta' | 'cerrada' | string;
+  status_vimica?: 'abierta' | 'cerrada' | string;
   comentarios?: string;
 }
 

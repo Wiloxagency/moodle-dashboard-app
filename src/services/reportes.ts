@@ -50,6 +50,7 @@ interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string
 const AVANCES_URL = `${config.apiBaseUrl}/reportes/avances`;
 const VIMICA_URL = `${config.apiBaseUrl}/reportes/vimica`;
 const VIMICA_SEND_URL = `${config.apiBaseUrl}/reportes/vimica/enviar`;
+const VIMICA_CLOSE_URL = `${config.apiBaseUrl}/reportes/vimica/cerrar-procesadas`;
 
 export const reportesApi = {
   async listAvances(): Promise<{ data: ReporteAvanceRow[]; generatedAt?: string }> {
@@ -87,6 +88,23 @@ export const reportesApi = {
 
     if (json?.success === false) throw new Error(json.error?.message || 'API error');
     return (json?.data ?? json) as VimicaResponse;
+  },
+
+  async closeVimicaProcesadas(): Promise<{ matched: number; modified: number }> {
+    const res = await fetch(VIMICA_CLOSE_URL, { method: 'POST' });
+    let json: any = null;
+    try {
+      json = await res.json();
+    } catch (_) {
+      json = null;
+    }
+    if (!res.ok) {
+      const msg = json?.error?.message || `Error cerrando inscripciones (${res.status})`;
+      throw new Error(msg);
+    }
+    if (json?.success === false) throw new Error(json.error?.message || 'API error');
+    const data = json?.data || {};
+    return { matched: data.matched ?? 0, modified: data.modified ?? 0 };
   }
 };
 

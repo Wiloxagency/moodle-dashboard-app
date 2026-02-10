@@ -228,13 +228,18 @@ const Dashboard: React.FC = () => {
     setEstadoCurso((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const isActiveForReport = (termino?: string) => {
-    if (!termino) return true;
+  const isClosedStatus = (value?: string) => String(value || '').trim().toLowerCase() === 'cerrada';
+
+  const shouldCloseInscripcion = (termino?: string) => {
+    if (!termino) return false;
     const end = parseDateOnly(termino);
-    if (!end) return true;
+    if (!end) return false;
+    const closeDate = new Date(end);
+    closeDate.setDate(closeDate.getDate() + 1);
+    closeDate.setHours(0, 0, 0, 0);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return end.getTime() >= today.getTime();
+    return today.getTime() >= closeDate.getTime();
   };
 
   const handleActualizar = async () => {
@@ -249,13 +254,13 @@ const Dashboard: React.FC = () => {
         ? allIns
         : allIns.filter((ins) => Number(ins.empresa) === targetEmpresa);
 
-      const activeIns = filtered.filter((ins) => isActiveForReport(ins.termino));
-      const total = activeIns.length;
+      const openIns = filtered.filter((ins) => !isClosedStatus(ins.status));
+      const total = openIns.length;
       if (!total) {
-        setReportStatus('No hay inscripciones activas para actualizar.');
+        setReportStatus('No hay inscripciones abiertas para actualizar.');
       } else {
         let current = 0;
-        for (const ins of activeIns) {
+        for (const ins of openIns) {
           current += 1;
           setReportStatus(`Procesando ${current} de ${total} inscripciones...`);
           const num = ins.numeroInscripcion;
@@ -267,6 +272,14 @@ const Dashboard: React.FC = () => {
           }
           const json = await res.json();
           if (!json.success) throw new Error(json.error?.message || `Error generando reporte para inscripción ${num}`);
+
+          if (shouldCloseInscripcion(ins.termino) && ins._id) {
+            try {
+              await inscripcionesApi.update(ins._id, { status: 'cerrada' });
+            } catch (e) {
+              console.error('Error cerrando inscripción', ins.numeroInscripcion, e);
+            }
+          }
         }
         setReportStatus(`Reporte actualizado para ${total} inscripciones.`);
       }

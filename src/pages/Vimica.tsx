@@ -12,6 +12,8 @@ const Vimica: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [sendResponse, setSendResponse] = useState<VimicaResponse | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [closeMessage, setCloseMessage] = useState<string | null>(null);
 
   const isAllowed = Number(user?.empresa) === 1;
 
@@ -78,6 +80,22 @@ const Vimica: React.FC = () => {
     }
   }, [data, isAllowed, sending]);
 
+  const handleCerrarProcesadas = useCallback(async () => {
+    if (!isAllowed || closing) return;
+    setClosing(true);
+    setCloseMessage(null);
+    try {
+      const result = await reportesApi.closeVimicaProcesadas();
+      setCloseMessage(`Inscripciones cerradas en Vimica: ${result.modified} de ${result.matched}`);
+      await load();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Error cerrando inscripciones';
+      setCloseMessage(msg);
+    } finally {
+      setClosing(false);
+    }
+  }, [isAllowed, closing, load]);
+
   return (
     <div className="p-6">
       <div className="w-full max-w-[1150px] mx-auto">
@@ -114,11 +132,21 @@ const Vimica: React.FC = () => {
             >
               {sending ? 'Enviando...' : 'Enviar'}
             </button>
+            <button
+              onClick={handleCerrarProcesadas}
+              disabled={!isAllowed || loading || closing}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {closing ? 'Cerrando...' : 'Cerrar Procesadas'}
+            </button>
           </div>
         </div>
 
         {copiedMessage && (
           <div className="mb-4 text-sm text-green-600">{copiedMessage}</div>
+        )}
+        {closeMessage && (
+          <div className="mb-4 text-sm text-gray-600">{closeMessage}</div>
         )}
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
