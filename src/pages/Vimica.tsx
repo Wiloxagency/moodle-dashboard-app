@@ -12,12 +12,10 @@ const Vimica: React.FC = () => {
   const [sending, setSending] = useState(false);
   const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const [sendResponse, setSendResponse] = useState<VimicaResponse | null>(null);
-  const [closing, setClosing] = useState(false);
-  const [closeMessage, setCloseMessage] = useState<string | null>(null);
 
   const isAllowed = Number(user?.empresa) === 1;
 
-  const isEnviarEnabled = false;
+  const isEnviarEnabled = true;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,21 +78,6 @@ const Vimica: React.FC = () => {
     }
   }, [data, isAllowed, sending]);
 
-  const handleCerrarProcesadas = useCallback(async () => {
-    if (!isAllowed || closing) return;
-    setClosing(true);
-    setCloseMessage(null);
-    try {
-      const result = await reportesApi.closeVimicaProcesadas();
-      setCloseMessage(`Inscripciones cerradas en Vimica: ${result.modified} de ${result.matched}`);
-      await load();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Error cerrando inscripciones';
-      setCloseMessage(msg);
-    } finally {
-      setClosing(false);
-    }
-  }, [isAllowed, closing, load]);
 
   return (
     <div className="p-6">
@@ -132,24 +115,15 @@ const Vimica: React.FC = () => {
             >
               {sending ? 'Enviando...' : 'Enviar'}
             </button>
-            <button
-              onClick={handleCerrarProcesadas}
-              disabled={!isAllowed || loading || closing}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {closing ? 'Cerrando...' : 'Cerrar Procesadas'}
-            </button>
           </div>
         </div>
 
         {copiedMessage && (
           <div className="mb-4 text-sm text-green-600">{copiedMessage}</div>
         )}
-        {closeMessage && (
-          <div className="mb-4 text-sm text-gray-600">{closeMessage}</div>
-        )}
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="max-h-[80vh] overflow-y-auto space-y-4">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-4 py-3 border-b border-gray-200 text-sm text-gray-600">
             Vista previa JSON
           </div>
@@ -158,20 +132,21 @@ const Vimica: React.FC = () => {
               {loading ? 'Cargando...' : jsonText}
             </pre>
           </div>
-        </div>
+          </div>
 
-        {sendResponse && (
-          <div className="mt-4 bg-white rounded-lg shadow-sm border border-gray-200">
+          {sendResponse && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
             <div className="px-4 py-3 border-b border-gray-200 text-sm text-gray-600">
               Respuesta del endpoint
             </div>
-            <div className="max-h-[40vh] overflow-y-auto">
+            <div>
               <pre className="p-4 text-xs md:text-sm whitespace-pre-wrap break-words">
                 {JSON.stringify(sendResponse, null, 2)}
               </pre>
             </div>
           </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
