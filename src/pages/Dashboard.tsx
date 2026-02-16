@@ -346,15 +346,17 @@ const Dashboard: React.FC = () => {
                 <RefreshCw className={`w-4 h-4 ${(reportUpdating && reportUpdateScope === 'empresa') ? 'animate-spin' : ''}`} />
                 {(reportUpdating && reportUpdateScope === 'empresa') ? 'Actualizando...' : 'Actualizar'}
               </button>
-              <button
-                onClick={handleActualizarTodo}
-                disabled={refreshing || loading || reportUpdating}
-                className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Actualizar métricas de todas las empresas"
-              >
-                <RefreshCw className={`w-4 h-4 ${(reportUpdating && reportUpdateScope === 'todo') ? 'animate-spin' : ''}`} />
-                {(reportUpdating && reportUpdateScope === 'todo') ? 'Actualizando...' : 'Actualizar Todo'}
-              </button>
+              {!config.isProduction && (
+                <button
+                  onClick={handleActualizarTodo}
+                  disabled={refreshing || loading || reportUpdating}
+                  className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Actualizar métricas de todas las empresas"
+                >
+                  <RefreshCw className={`w-4 h-4 ${(reportUpdating && reportUpdateScope === 'todo') ? 'animate-spin' : ''}`} />
+                  {(reportUpdating && reportUpdateScope === 'todo') ? 'Actualizando...' : 'Actualizar Todo'}
+                </button>
+              )}
             </div>
           </div>
           {reportError && (

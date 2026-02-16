@@ -82,7 +82,10 @@ const LoginPage: React.FC = () => {
         setLoadingEmpresas(true);
         try {
           const items = await empresasApi.list();
-          setEmpresas(items);
+          const sorted = [...items].sort((a, b) =>
+            String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' })
+          );
+          setEmpresas(sorted);
         } catch {
           setLoginError('No se pudieron cargar las empresas');
         } finally {

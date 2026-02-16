@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Inscripciones from './pages/Inscripciones';
 import ReporteAvances from './pages/ReporteAvances';
 import Vimica from './pages/Vimica';
+import VimicaJson from './pages/VimicaJson';
 import Participantes from './pages/Participantes';
 import EmpresasPage from './pages/Empresas';
 import ModalidadPage from './pages/Modalidad';
@@ -42,6 +43,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Vimica />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/vimica/json"
+          element={
+            <ProtectedRoute>
+              <VimicaJson />
             </ProtectedRoute>
           }
         />

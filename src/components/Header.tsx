@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, User, Home, Users, Building2, Waypoints, UserCircle2, Sheet } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
+import { empresasApi } from '../services/empresas';
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -19,6 +20,35 @@ const Header: React.FC = () => {
   };
 
   const isSuperAdmin = user?.role === 'superAdmin';
+  const [activeEmpresaName, setActiveEmpresaName] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    const loadActiveEmpresa = async () => {
+      if (user?.empresa === undefined || user?.empresa === null) {
+        if (mounted) setActiveEmpresaName('');
+        return;
+      }
+      try {
+        const items = await empresasApi.list();
+        if (!mounted) return;
+        const found = items.find((item) => Number(item.code) === Number(user.empresa));
+        setActiveEmpresaName((found?.nombre || '').trim());
+      } catch {
+        if (mounted) setActiveEmpresaName('');
+      }
+    };
+    loadActiveEmpresa();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.empresa]);
+
+  const activeEmpresaDisplay = useMemo(() => {
+    const name = activeEmpresaName.trim();
+    if (!name) return '';
+    return name.length > 12 ? `${name.slice(0, 10)}...` : name;
+  }, [activeEmpresaName]);
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">
@@ -122,7 +152,10 @@ const Header: React.FC = () => {
           {/* User Name */}
           <div className="flex items-center space-x-2 text-gray-700">
             <User className="w-5 h-5 text-gray-500" />
-            <span className="text-sm font-medium">{user?.username ?? 'Invitado'}</span>
+            <span className="text-sm font-medium">
+              {user?.username ?? 'Invitado'}
+              {activeEmpresaDisplay ? ` (${activeEmpresaDisplay})` : ''}
+            </span>
           </div>
           
           {/* Logout Button */}

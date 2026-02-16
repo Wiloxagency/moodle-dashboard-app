@@ -45,11 +45,24 @@ export interface VimicaResponse {
   RegistrosLeidos: number;
 }
 
+export interface VimicaHistorialRow {
+  _id?: string;
+  Id?: number | string;
+  Fecha?: string;
+  CantidadRegistros?: number;
+  RegistrosCargados?: number;
+  RegistrosRechazados?: number;
+  RegistrosRechazado?: number;
+  RegistrosLeidos?: number;
+  datosEnviados?: VimicaPayload | Record<string, any>;
+}
+
 interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string }; generatedAt?: string }
 
 const AVANCES_URL = `${config.apiBaseUrl}/reportes/avances`;
 const VIMICA_URL = `${config.apiBaseUrl}/reportes/vimica`;
 const VIMICA_SEND_URL = `${config.apiBaseUrl}/reportes/vimica/enviar`;
+const VIMICA_HIST_URL = `${config.apiBaseUrl}/reportes/vimica/historial`;
 const VIMICA_CLOSE_URL = `${config.apiBaseUrl}/reportes/vimica/cerrar-procesadas`;
 
 export const reportesApi = {
@@ -65,6 +78,14 @@ export const reportesApi = {
     if (!res.ok) throw new Error('Error fetching reporte Vimica');
     return res.json();
   },
+  async listVimicaHistorial(): Promise<VimicaHistorialRow[]> {
+    const res = await fetch(VIMICA_HIST_URL);
+    if (!res.ok) throw new Error('Error fetching historial Vimica');
+    const json: ApiResponse<VimicaHistorialRow[]> = await res.json();
+    if (!json.success) throw new Error(json.error?.message || 'API error');
+    return json.data || [];
+  },
+
   async sendVimica(payload?: VimicaPayload): Promise<VimicaResponse> {
     const res = await fetch(VIMICA_SEND_URL, {
       method: 'POST',
