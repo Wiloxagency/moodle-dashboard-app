@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { reportesApi, type ReporteAvanceRow } from '../services/reportes';
+import { empresasApi, type Empresa } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
 
 
@@ -55,6 +56,7 @@ const ReporteAvances: React.FC = () => {
   const [generatedAt, setGeneratedAt] = useState<string | undefined>(undefined);
   const [exporting, setExporting] = useState(false);
 
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [mode, setMode] = useState<'active' | 'all'>('active');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState(() => formatDateInput(new Date()));
@@ -74,8 +76,18 @@ const ReporteAvances: React.FC = () => {
     }
   };
 
+  const loadEmpresas = async () => {
+    try {
+      const items = await empresasApi.list();
+      setEmpresas(items);
+    } catch {
+      setEmpresas([]);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadEmpresas();
   }, []);
 
   const formatPercent = (value?: number | null) => (value === null || value === undefined ? '' : `${value}%`);
@@ -86,6 +98,12 @@ const ReporteAvances: React.FC = () => {
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
+
+  const empresaByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const e of empresas) map[e.code] = e.nombre;
+    return map;
+  }, [empresas]);
 
   const fromDate = useMemo(() => (dateFrom ? parseDateInput(dateFrom) : null), [dateFrom]);
   const toDate = useMemo(() => (dateTo ? parseDateInput(dateTo) : null), [dateTo]);
@@ -163,7 +181,12 @@ const ReporteAvances: React.FC = () => {
 
   const exportRows = useMemo(() => {
     return filteredRows.map((row) => ({
-      'Empresa': row.empresa || '',
+      'Empresa': (() => {
+        const raw = row.empresa || '';
+        const num = Number(raw);
+        if (Number.isFinite(num) && empresaByCode[num]) return empresaByCode[num];
+        return String(raw || '');
+      })(),
       'Nombre del Curso': row.nombreCurso || '',
       'ID Sence': row.idSence || '',
       'RUT': row.rut || '',
@@ -179,7 +202,7 @@ const ReporteAvances: React.FC = () => {
       'N° Correlativo': row.correlativo ?? '',
       'Responsable': row.responsable || '',
     }));
-  }, [filteredRows, generatedAt]);
+  }, [filteredRows, generatedAt, empresaByCode]);
 
   const handleExport = async () => {
     if (!exportRows.length || exporting) return;

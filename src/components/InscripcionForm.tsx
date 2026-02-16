@@ -14,6 +14,8 @@ interface Props {
   empresaByCode?: Record<number, string>;
   empresaByName?: Record<string, number>;
   defaultEmpresaCode?: number;
+  modalidadByCode?: Record<number, string>;
+  ejecutivoByCode?: Record<number, string>;
 }
 
 const empty: Inscripcion = {
@@ -28,10 +30,10 @@ const empty: Inscripcion = {
   idSence: undefined,
   idMoodle: '',
   nombreCurso: undefined,
-  modalidad: 'e-learning',
+  modalidad: '' as any,
   inicio: '',
   termino: undefined,
-  ejecutivo: '',
+  ejecutivo: '' as any,
   numAlumnosInscritos: 0,
   valorInicial: undefined,
   responsable: undefined,
@@ -89,6 +91,78 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     return undefined;
   };
 
+  const normalizeText = (value?: string) => (value || '').trim().toLowerCase();
+
+  const buildEjecutivoLabel = (e: Ejecutivo) => {
+    const apellidos = (e as any).apellidos ?? (e as any).apellido ?? '';
+    return `${e.nombres} ${apellidos}`.trim();
+  };
+
+  const modalidadByLabel = useMemo(() => {
+    const map: Record<string, number> = {};
+    modalidades.forEach((m) => {
+      const labels: string[] = [];
+      if (m.sincronico) labels.push('Sincrónico');
+      if (m.asincronico) labels.push('Asincrónico');
+      if (m.sincronico_online) labels.push('Sincrónico On-line');
+      if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
+      if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
+      const labelBase = labels.join(' | ') || `Modalidad ${m.code}`;
+      const label = m.nombre || labelBase;
+      const key = normalizeText(label);
+      if (key) map[key] = m.code;
+    });
+    return map;
+  }, [modalidades]);
+
+  const ejecutivoByLabel = useMemo(() => {
+    const map: Record<string, number> = {};
+    ejecutivos.forEach((e) => {
+      const label = buildEjecutivoLabel(e);
+      const key = normalizeText(label);
+      if (key) map[key] = e.code;
+    });
+    return map;
+  }, [ejecutivos]);
+
+  const modalidadByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    modalidades.forEach((m) => {
+      const labels: string[] = [];
+      if (m.sincronico) labels.push('Sincrónico');
+      if (m.asincronico) labels.push('Asincrónico');
+      if (m.sincronico_online) labels.push('Sincrónico On-line');
+      if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
+      if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
+      const labelBase = labels.join(' | ') || `Modalidad ${m.code}`;
+      const label = m.nombre || labelBase;
+      map[m.code] = label;
+    });
+    return map;
+  }, [modalidades]);
+
+  const ejecutivoByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    ejecutivos.forEach((e) => {
+      map[e.code] = buildEjecutivoLabel(e);
+    });
+    return map;
+  }, [ejecutivos]);
+
+  const getModalidadLabelByCode = (value: any) => {
+    if (value === undefined || value === null || value === '') return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    return modalidadByCode[num] || `Modalidad ${value}`;
+  };
+
+  const getEjecutivoLabelByCode = (value: any) => {
+    if (value === undefined || value === null || value === '') return '';
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    return ejecutivoByCode[num] || `Ejecutivo ${value}`;
+  };
+
   const empresaLabel = useMemo(() => {
     const normalized = normalizeEmpresaCode(form.empresa);
     if (normalized !== undefined && empresaByCode?.[normalized]) return empresaByCode[normalized];
@@ -132,7 +206,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
 
   const change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    const numeric = ['numAlumnosInscritos', 'valorInicial', 'correlativo', 'empresa'];
+    const numeric = ['numAlumnosInscritos', 'valorInicial', 'correlativo', 'empresa', 'modalidad', 'ejecutivo'];
     setForm((f) => ({
       ...f,
       [name]: numeric.includes(name) ? (value === '' ? (undefined as any) : Number(value)) : value,
@@ -207,6 +281,26 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
       } else if (defaultEmpresaCode !== undefined) {
         payload.empresa = defaultEmpresaCode;
       }
+      // Normalizar modalidad/ejecutivo a códigos si vienen como texto
+      if (payload.modalidad !== undefined && payload.modalidad !== null && payload.modalidad !== '') {
+        const num = Number(payload.modalidad);
+        if (Number.isFinite(num)) {
+          payload.modalidad = num;
+        } else {
+          const mapped = modalidadByLabel[normalizeText(String(payload.modalidad))];
+          if (mapped !== undefined) payload.modalidad = mapped;
+        }
+      }
+      if (payload.ejecutivo !== undefined && payload.ejecutivo !== null && payload.ejecutivo !== '') {
+        const num = Number(payload.ejecutivo);
+        if (Number.isFinite(num)) {
+          payload.ejecutivo = num;
+        } else {
+          const mapped = ejecutivoByLabel[normalizeText(String(payload.ejecutivo))];
+          if (mapped !== undefined) payload.ejecutivo = mapped;
+        }
+      }
+
       // Validar fecha de inicio provista desde el input de texto
       if (!payload.inicio && inicioStr) {
         const iso = toISODate(inicioStr);
@@ -317,23 +411,13 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
               const labelBase = labels.join(' | ') || `Modalidad ${m.code}`;
               const label = m.nombre || labelBase;
               return (
-                <option key={m._id || m.code} value={label}>
+                <option key={m._id || m.code} value={m.code}>
                   {label}
                 </option>
               );
             })}
-            {form.modalidad && !modalidades.some(m => {
-              const labels: string[] = [];
-              if (m.sincronico) labels.push('Sincrónico');
-              if (m.asincronico) labels.push('Asincrónico');
-              if (m.sincronico_online) labels.push('Sincrónico On-line');
-              if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
-              if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
-              const labelBase = labels.join(' | ') || `Modalidad ${m.code}`;
-              const label = m.nombre || labelBase;
-              return label === form.modalidad;
-            }) && (
-              <option value={form.modalidad}>{form.modalidad} (actual)</option>
+            {form.modalidad && !modalidades.some(m => String(m.code) === String(form.modalidad)) && (
+              <option value={form.modalidad}>{getModalidadLabelByCode(form.modalidad)} (actual)</option>
             )}
           </select>
         </div>
@@ -370,18 +454,15 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
           >
             <option value="">Seleccione ejecutivo...</option>
             {ejecutivos.map(e => {
-              const label = `${e.nombres} ${e.apellidos}`.trim();
+              const label = buildEjecutivoLabel(e);
               return (
-                <option key={e._id || e.code} value={label}>
+                <option key={e._id || e.code} value={e.code}>
                   {label}
                 </option>
               );
             })}
-            {form.ejecutivo && !ejecutivos.some(e => {
-              const label = `${e.nombres} ${e.apellidos}`.trim();
-              return label === form.ejecutivo;
-            }) && (
-              <option value={form.ejecutivo}>{form.ejecutivo} (actual)</option>
+            {form.ejecutivo && !ejecutivos.some(e => String(e.code) === String(form.ejecutivo)) && (
+              <option value={form.ejecutivo}>{getEjecutivoLabelByCode(form.ejecutivo)} (actual)</option>
             )}
           </select>
         </div>

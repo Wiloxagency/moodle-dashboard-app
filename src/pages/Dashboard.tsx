@@ -74,6 +74,7 @@ const Dashboard: React.FC = () => {
   const [reportUpdating, setReportUpdating] = useState(false);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [reportUpdateScope, setReportUpdateScope] = useState<'empresa' | 'todo' | null>(null);
 
   const { user } = useAuth();
   const empresaCode = user?.empresa;
@@ -242,46 +243,58 @@ const Dashboard: React.FC = () => {
     return today.getTime() >= closeDate.getTime();
   };
 
-  const handleActualizar = async () => {
+  const runActualizar = async (scope: 'empresa' | 'todo') => {
     if (reportUpdating || refreshing || loading) return;
     setReportUpdating(true);
+    setReportUpdateScope(scope);
     setReportError(null);
     setReportStatus(null);
     try {
       const allIns = await inscripcionesApi.list();
       const targetEmpresa = empresaCode == null ? null : Number(empresaCode);
-      const filtered = targetEmpresa == null || !Number.isFinite(targetEmpresa)
+      const filtered = scope === 'todo'
         ? allIns
-        : allIns.filter((ins) => Number(ins.empresa) === targetEmpresa);
+        : (targetEmpresa == null || !Number.isFinite(targetEmpresa)
+            ? allIns
+            : allIns.filter((ins) => Number(ins.empresa) === targetEmpresa));
 
+      const scopeLabel = scope === 'todo' ? 'todas las empresas' : 'la empresa activa';
       const openIns = filtered.filter((ins) => !isClosedStatus(ins.status));
       const total = openIns.length;
       if (!total) {
-        setReportStatus('No hay inscripciones abiertas para actualizar.');
+        setReportStatus(`No hay inscripciones abiertas para actualizar en ${scopeLabel}.`);
       } else {
         let current = 0;
+        let failures = 0;
         for (const ins of openIns) {
           current += 1;
-          setReportStatus(`Procesando ${current} de ${total} inscripciones...`);
+          setReportStatus(`Procesando ${current} de ${total} inscripciones (${scopeLabel})...`);
           const num = ins.numeroInscripcion;
-          const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(String(num))}/grades-numeric`;
-          const res = await fetch(url, { cache: 'no-store' });
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `Error generando reporte para inscripción ${num}`);
-          }
-          const json = await res.json();
-          if (!json.success) throw new Error(json.error?.message || `Error generando reporte para inscripción ${num}`);
-
-          if (shouldCloseInscripcion(ins.termino) && ins._id) {
-            try {
-              await inscripcionesApi.update(ins._id, { status: 'cerrada' });
-            } catch (e) {
-              console.error('Error cerrando inscripción', ins.numeroInscripcion, e);
+          try {
+            const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(String(num))}/grades-numeric`;
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) {
+              const text = await res.text();
+              throw new Error(text || `Error generando reporte para inscripción ${num}`);
             }
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error?.message || `Error generando reporte para inscripción ${num}`);
+
+            if (shouldCloseInscripcion(ins.termino) && ins._id) {
+              try {
+                await inscripcionesApi.update(ins._id, { status: 'cerrada' });
+              } catch (e) {
+                console.error('Error cerrando inscripción', ins.numeroInscripcion, e);
+              }
+            }
+          } catch (e) {
+            failures += 1;
+            console.error('Error procesando inscripción', num, e);
           }
         }
-        setReportStatus(`Reporte actualizado para ${total} inscripciones.`);
+        const okCount = total - failures;
+        const suffix = failures ? ` (${failures} con errores)` : '';
+        setReportStatus(`Reporte actualizado para ${okCount} de ${total} inscripciones en ${scopeLabel}.${suffix}`);
       }
 
       await loadCache(true);
@@ -289,7 +302,16 @@ const Dashboard: React.FC = () => {
       setReportError(e?.message || 'Error generando reporte de avances');
     } finally {
       setReportUpdating(false);
+      setReportUpdateScope(null);
     }
+  };
+
+  const handleActualizar = async () => {
+    await runActualizar('empresa');
+  };
+
+  const handleActualizarTodo = async () => {
+    await runActualizar('todo');
   };
 
   return (
@@ -319,10 +341,19 @@ const Dashboard: React.FC = () => {
                 onClick={handleActualizar}
                 disabled={refreshing || loading || reportUpdating}
                 className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Actualizar métricas"
+                title="Actualizar métricas de la empresa activa"
               >
-                <RefreshCw className={`w-4 h-4 ${(refreshing || reportUpdating) ? 'animate-spin' : ''}`} />
-                {(refreshing || reportUpdating) ? 'Actualizando...' : 'Actualizar'}
+                <RefreshCw className={`w-4 h-4 ${(reportUpdating && reportUpdateScope === 'empresa') ? 'animate-spin' : ''}`} />
+                {(reportUpdating && reportUpdateScope === 'empresa') ? 'Actualizando...' : 'Actualizar'}
+              </button>
+              <button
+                onClick={handleActualizarTodo}
+                disabled={refreshing || loading || reportUpdating}
+                className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Actualizar métricas de todas las empresas"
+              >
+                <RefreshCw className={`w-4 h-4 ${(reportUpdating && reportUpdateScope === 'todo') ? 'animate-spin' : ''}`} />
+                {(reportUpdating && reportUpdateScope === 'todo') ? 'Actualizando...' : 'Actualizar Todo'}
               </button>
             </div>
           </div>

@@ -17,10 +17,10 @@ export interface Inscripcion {
   idMoodle: string; // obligatorio
   nombreCurso?: string;
   // Usamos string genérico porque ahora viene desde la configuración de "Modalidad"
-  modalidad: string;
+  modalidad: number | string;
   inicio: string; // ISO string (obligatorio)
   termino?: string; // ISO string (opcional)
-  ejecutivo: string;
+  ejecutivo: number | string;
   numAlumnosInscritos: number;
   valorInicial?: number;
   responsable?: string;

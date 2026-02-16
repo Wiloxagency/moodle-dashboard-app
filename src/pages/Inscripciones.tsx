@@ -4,6 +4,8 @@ import InscripcionForm from '../components/InscripcionForm';
 import { inscripcionesApi, type Inscripcion } from '../services/inscripciones';
 import { participantesApi } from '../services/participantes';
 import { empresasApi, type Empresa } from '../services/empresas';
+import { modalidadesApi, type Modalidad } from '../services/modalidades';
+import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
 import { useAuth } from '../context/AuthContext';
 
 const Inscripciones: React.FC = () => {
@@ -15,12 +17,45 @@ const Inscripciones: React.FC = () => {
   const [editing, setEditing] = useState<Partial<Inscripcion> | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  const [modalidades, setModalidades] = useState<Modalidad[]>([]);
+  const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
+
+  const getModalidadLabel = (m: Modalidad) => {
+    if (m.nombre && m.nombre.trim() !== '') return m.nombre.trim();
+    const labels: string[] = [];
+    if (m.sincronico) labels.push('Sincrónico');
+    if (m.asincronico) labels.push('Asincrónico');
+    if (m.sincronico_online) labels.push('Sincrónico On-line');
+    if (m.sincronico_presencial_moodle) labels.push('Sincrónico Presencial Moodle');
+    if (m.sincronico_presencial_no_moodle) labels.push('Sincrónico Presencial No-Moodle');
+    return labels.join(' | ') || `Modalidad ${m.code}`;
+  };
+
+  const getEjecutivoLabel = (e: Ejecutivo) => {
+    const apellidos = (e as any).apellidos ?? (e as any).apellido ?? '';
+    return `${e.nombres} ${apellidos}`.trim();
+  };
+
+
+
 
   const empresaByCode = useMemo(() => {
     const map: Record<number, string> = {};
     for (const e of empresas) map[e.code] = e.nombre;
     return map;
   }, [empresas]);
+
+  const modalidadByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const m of modalidades) map[m.code] = getModalidadLabel(m);
+    return map;
+  }, [modalidades]);
+
+  const ejecutivoByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const e of ejecutivos) map[e.code] = getEjecutivoLabel(e);
+    return map;
+  }, [ejecutivos]);
 
   const empresaByName = useMemo(() => {
     const map: Record<string, number> = {};
@@ -58,12 +93,18 @@ const Inscripciones: React.FC = () => {
     sessionStorage.setItem('inscripcionesCache', JSON.stringify(items));
   };
 
-  const loadEmpresas = async () => {
+  const loadCatalogs = async () => {
     try {
-      const items = await empresasApi.list();
-      setEmpresas(items);
+      const [empresaItems, modalidadItems, ejecutivoItems] = await Promise.all([
+        empresasApi.list(),
+        modalidadesApi.list(),
+        ejecutivosApi.list(),
+      ]);
+      setEmpresas(empresaItems);
+      setModalidades(modalidadItems);
+      setEjecutivos(ejecutivoItems);
     } catch (e) {
-      console.warn('Failed to fetch empresas', e);
+      console.warn('Failed to fetch catalogs', e);
     }
   };
 
@@ -77,7 +118,7 @@ const Inscripciones: React.FC = () => {
       } catch {}
     }
     load();
-    loadEmpresas();
+    loadCatalogs();
   }, []);
 
   useEffect(() => {
@@ -155,6 +196,8 @@ const Inscripciones: React.FC = () => {
             onNew={openForNew} 
             onEdit={openForEdit} 
             empresaByCode={empresaByCode}
+            modalidadByCode={modalidadByCode}
+            ejecutivoByCode={ejecutivoByCode}
           />
         </div>
       </div>
@@ -172,6 +215,8 @@ const Inscripciones: React.FC = () => {
               onSave={handleSave}
               onDelete={editing && editing._id ? handleDelete : undefined}
               empresaByCode={empresaByCode}
+            modalidadByCode={modalidadByCode}
+            ejecutivoByCode={ejecutivoByCode}
               empresaByName={empresaByName}
               defaultEmpresaCode={empresaCode}
             />

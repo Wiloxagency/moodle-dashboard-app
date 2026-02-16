@@ -9,6 +9,8 @@ interface Props {
   onNew?: () => void;
   onEdit?: (item: Inscripcion) => void;
   empresaByCode?: Record<number, string>;
+  modalidadByCode?: Record<number, string>;
+  ejecutivoByCode?: Record<number, string>;
 }
 
 type SortKey =
@@ -28,7 +30,7 @@ type SortKey =
   | 'numAlumnosInscritos'
   | 'valorInicial'
 
-const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit, empresaByCode = {} }) => {
+const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit, empresaByCode = {}, modalidadByCode = {}, ejecutivoByCode = {} }) => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
   const [perPage, setPerPage] = useState(25);
@@ -47,7 +49,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
   };
 
   const getModalidadColor = (modalidad: string) => {
-    switch (modalidad && modalidad.toLowerCase()) {
+    switch ((modalidad || '').toLowerCase()) {
       case 'e-learning':
         return 'bg-blue-100 text-blue-800';
       case 'sincrónico':
@@ -93,6 +95,28 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
     return raw;
   };
 
+  const getModalidadLabel = (value: any): string => {
+    if (value === undefined || value === null || value === '') return '';
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return modalidadByCode[value] || String(value);
+    }
+    const raw = String(value).trim();
+    const num = Number(raw);
+    if (Number.isFinite(num)) return modalidadByCode[num] || raw;
+    return raw;
+  };
+
+  const getEjecutivoLabel = (value: any): string => {
+    if (value === undefined || value === null || value === '') return '';
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return ejecutivoByCode[value] || String(value);
+    }
+    const raw = String(value).trim();
+    const num = Number(raw);
+    if (Number.isFinite(num)) return ejecutivoByCode[num] || raw;
+    return raw;
+  };
+
   // Filtering
   const filtered = useMemo(() => {
     if (!filter.trim()) return data;
@@ -104,11 +128,12 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
       getEmpresaLabel(r.empresa).toLowerCase().includes(q) ||
       String(r.empresa || '').toLowerCase().includes(q) ||
       (r.nombreCurso || '').toLowerCase().includes(q) ||
-      (r.ejecutivo || '').toLowerCase().includes(q) ||
+      getModalidadLabel(r.modalidad).toLowerCase().includes(q) ||
+      getEjecutivoLabel(r.ejecutivo).toLowerCase().includes(q) ||
       (r.idMoodle || '').toLowerCase().includes(q) ||
       (r.idSence || '').toLowerCase().includes(q)
     );
-  }, [data, filter, empresaByCode]);
+  }, [data, filter, empresaByCode, modalidadByCode, ejecutivoByCode]);
 
   // Sorting
   const sorted = useMemo(() => {
@@ -124,6 +149,8 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
           case 'numeroInscripcion': return parseInt(a.numeroInscripcion as any, 10) || 0;
           case 'correlativo': return a.correlativo || 0;
           case 'empresa': return getEmpresaLabel(a.empresa).toLowerCase();
+          case 'modalidad': return getModalidadLabel(a.modalidad).toLowerCase();
+          case 'ejecutivo': return getEjecutivoLabel(a.ejecutivo).toLowerCase();
           default: return (a as any)[key]?.toString()?.toLowerCase?.() ?? '';
         }
       };
@@ -136,6 +163,8 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
           case 'numeroInscripcion': return parseInt(b.numeroInscripcion as any, 10) || 0;
           case 'correlativo': return b.correlativo || 0;
           case 'empresa': return getEmpresaLabel(b.empresa).toLowerCase();
+          case 'modalidad': return getModalidadLabel(b.modalidad).toLowerCase();
+          case 'ejecutivo': return getEjecutivoLabel(b.ejecutivo).toLowerCase();
           default: return (b as any)[key]?.toString()?.toLowerCase?.() ?? '';
         }
       };
@@ -146,7 +175,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
       return 0;
     });
     return arr;
-  }, [filtered, sortKey, sortDir, empresaByCode]);
+  }, [filtered, sortKey, sortDir, empresaByCode, modalidadByCode, ejecutivoByCode]);
 
   // Pagination
   const total = sorted.length;
@@ -221,13 +250,18 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[200px] truncate" title={getEmpresaLabel(r.empresa)}>{getEmpresaLabel(r.empresa)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[300px] truncate" title={r.nombreCurso}>{r.nombreCurso}</td>
                   <td className="px-4 py-3 whitespace-nowrap min-w-[120px]">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getModalidadColor(r.modalidad)}`}>
-                      {r.modalidad}
-                    </span>
+                    {(() => {
+                      const label = getModalidadLabel(r.modalidad);
+                      return (
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getModalidadColor(label)}`}>
+                          {label || '-'}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatDate(r.inicio)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{formatDate(r.termino)}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{r.ejecutivo}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[120px]">{getEjecutivoLabel(r.ejecutivo) || '-'} </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[130px]">{participantCounts[r.numeroInscripcion] ?? r.numAlumnosInscritos}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900 min-w-[110px]">{formatCurrency(r.valorInicial)}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 max-w-[320px] truncate" title={r.comentarios}>{r.comentarios || '-'}</td>
