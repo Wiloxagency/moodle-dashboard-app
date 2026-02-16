@@ -50,7 +50,7 @@ const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton }
               to="/vimica"
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors"
             >
-              Vimica
+              VMICA
             </Link>
           )}
           <Link
