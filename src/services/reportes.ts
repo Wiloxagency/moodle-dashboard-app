@@ -11,6 +11,7 @@ export interface ReporteAvanceRow {
   fechaInicio: string;
   fechaFinal: string;
   notaFinal: number | null;
+  notaDiagnostica: number | null;
   porcentajeAvance: number | null;
   porcentajeAsistencia: number | null;
   fechaReporte: string;

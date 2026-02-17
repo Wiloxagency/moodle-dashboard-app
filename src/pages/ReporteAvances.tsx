@@ -57,7 +57,7 @@ const ReporteAvances: React.FC = () => {
   const [exporting, setExporting] = useState(false);
 
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const [mode, setMode] = useState<'active' | 'all'>('active');
+  const [mode, setMode] = useState<'active' | 'historic' | 'all'>('active');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState(() => formatDateInput(new Date()));
   const [sortKey, setSortKey] = useState('');
@@ -123,6 +123,12 @@ const ReporteAvances: React.FC = () => {
         if (!end) return true;
         return end.getTime() >= today.getTime();
       });
+    } else if (mode === 'historic') {
+      rows = rows.filter((row) => {
+        const end = parseISODate(row.fechaFinal);
+        if (!end) return false;
+        return end.getTime() < today.getTime();
+      });
     }
 
     if (fromDate || toDate) {
@@ -179,6 +185,11 @@ const ReporteAvances: React.FC = () => {
     return rows;
   }, [empresaFiltered, mode, fromDate, toDate, sortKey, today]);
 
+  const showEvaluacionDiagnostica = useMemo(
+    () => filteredRows.some((row) => row.notaDiagnostica !== null && row.notaDiagnostica !== undefined),
+    [filteredRows]
+  );
+
   const exportRows = useMemo(() => {
     return filteredRows.map((row) => ({
       'Empresa': (() => {
@@ -195,6 +206,7 @@ const ReporteAvances: React.FC = () => {
       'Email': row.email || '',
       'Fecha de Inicio': formatDate(row.fechaInicio),
       'Fecha Final': formatDate(row.fechaFinal),
+      'Evaluación Diagnóstica': formatNota(row.notaDiagnostica),
       'Nota final': formatNota(row.notaFinal),
       '% Avance': formatPercent(row.porcentajeAvance),
       '% Asistencia': formatPercent(row.porcentajeAsistencia),
@@ -212,7 +224,7 @@ const ReporteAvances: React.FC = () => {
       const workbook = new mod.Workbook();
       const worksheet = workbook.addWorksheet('Reporte');
 
-      worksheet.columns = [
+      const columns: Array<{ header: string; key: string; width: number }> = [
         { header: 'Empresa', key: 'Empresa', width: 18 },
         { header: 'Nombre del Curso', key: 'Nombre del Curso', width: 54 },
         { header: 'ID Sence', key: 'ID Sence', width: 18 },
@@ -222,13 +234,22 @@ const ReporteAvances: React.FC = () => {
         { header: 'Email', key: 'Email', width: 28 },
         { header: 'Fecha de Inicio', key: 'Fecha de Inicio', width: 18 },
         { header: 'Fecha Final', key: 'Fecha Final', width: 18 },
+      ];
+
+      if (showEvaluacionDiagnostica) {
+        columns.push({ header: 'Eval\nDiag.', key: 'Evaluación Diagnóstica', width: 9 });
+      }
+
+      columns.push(
         { header: 'Nota final', key: 'Nota final', width: 12 },
         { header: '% Avance', key: '% Avance', width: 12 },
         { header: '% Asistencia', key: '% Asistencia', width: 14 },
         { header: 'Fecha reporte', key: 'Fecha reporte', width: 18 },
         { header: 'N° Correlativo', key: 'N° Correlativo', width: 16 },
         { header: 'Responsable', key: 'Responsable', width: 20 },
-      ];
+      );
+
+      worksheet.columns = columns;
 
       exportRows.forEach((row) => worksheet.addRow(row));
 
@@ -236,9 +257,9 @@ const ReporteAvances: React.FC = () => {
       headerRow.eachCell((cell) => {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006400' } };
         cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       });
-      headerRow.height = 20;
+      headerRow.height = 30;
 
       worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
@@ -285,6 +306,13 @@ const ReporteAvances: React.FC = () => {
                     className={`px-3 py-2 text-sm ${mode === 'active' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
                   >
                     Cursos Activos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('historic')}
+                    className={`px-3 py-2 text-sm ${mode === 'historic' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
+                  >
+                    Histórico
                   </button>
                   <button
                     type="button"
@@ -343,10 +371,15 @@ const ReporteAvances: React.FC = () => {
             </div>
 
             {error && <p className="px-6 py-3 text-sm text-red-600">{error}</p>}
-            {loading && <p className="px-6 py-3 text-sm text-gray-500">Cargando reporte...</p>}
+            {loading && (
+              <div className="px-6 py-4 flex items-center gap-3 text-sm text-gray-600">
+                <span className="h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+                <span>Cargando reporte...</span>
+              </div>
+            )}
 
             <div className="overflow-auto max-h-[65vh]">
-              <table className="w-full min-w-[1800px]">
+              <table className={`w-full ${showEvaluacionDiagnostica ? 'min-w-[1840px]' : 'min-w-[1800px]'}`}>
                 <thead className="text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">Empresa</th>
@@ -358,6 +391,11 @@ const ReporteAvances: React.FC = () => {
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[220px]">Email</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">Fecha de Inicio</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">Fecha Final</th>
+                    {showEvaluacionDiagnostica && (
+                      <th className="px-2 py-3 text-center text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[84px]">
+                        <span className="inline-block leading-tight">Eval.<br />Diag.</span>
+                      </th>
+                    )}
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">Nota final</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">% Avance</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">% Asistencia</th>
@@ -368,7 +406,7 @@ const ReporteAvances: React.FC = () => {
                 <tbody className="divide-y divide-gray-200">
                   {!loading && !error && exportRows.length === 0 ? (
                     <tr>
-                      <td colSpan={14} className="px-4 py-6 text-center text-gray-500">
+                      <td colSpan={showEvaluacionDiagnostica ? 15 : 14} className="px-4 py-6 text-center text-gray-500">
                         No hay datos disponibles
                       </td>
                     </tr>
@@ -384,6 +422,9 @@ const ReporteAvances: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Email']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Fecha de Inicio']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Fecha Final']}</td>
+                        {showEvaluacionDiagnostica && (
+                          <td className="px-2 py-3 text-sm text-gray-700 text-center whitespace-nowrap">{row['Evaluación Diagnóstica']}</td>
+                        )}
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Nota final']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['% Avance']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['% Asistencia']}</td>

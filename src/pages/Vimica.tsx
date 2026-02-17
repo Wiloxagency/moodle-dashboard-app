@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import reportesApi from '../services/reportes';
 import config from '../config/environment';
@@ -16,6 +17,9 @@ const Vimica: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<VimicaHistorialRow | null>(null);
+
+  const [modalPage, setModalPage] = useState(1);
+  const [modalPageSize, setModalPageSize] = useState(10);
 
   const isAllowed = Number(user?.empresa) === 1;
 
@@ -40,6 +44,10 @@ const Vimica: React.FC = () => {
     }
     load();
   }, [isAllowed, load, navigate]);
+
+  useEffect(() => {
+    setModalPage(1);
+  }, [selected, modalPageSize]);
 
   const toTimestamp = (value?: string) => {
     if (!value) return 0;
@@ -97,6 +105,25 @@ const Vimica: React.FC = () => {
     const payload = (selected as any)?.datosEnviados;
     return Array.isArray(payload?.AvanceCursos) ? payload.AvanceCursos : [];
   }, [selected]);
+
+  const modalTotalPages = Math.max(1, Math.ceil(selectedAvanceCursos.length / modalPageSize));
+
+  useEffect(() => {
+    if (modalPage > modalTotalPages) setModalPage(modalTotalPages);
+  }, [modalPage, modalTotalPages]);
+
+  const pagedAvanceCursos = useMemo(() => {
+    const start = (modalPage - 1) * modalPageSize;
+    return selectedAvanceCursos.slice(start, start + modalPageSize);
+  }, [selectedAvanceCursos, modalPage, modalPageSize]);
+
+  const getStatusType = (item: any): 'ok' | 'fail' | null => {
+    const raw = String(item?.EstadoCurso ?? '').trim().toLowerCase();
+    if (!raw || raw === '0') return null;
+    if (raw === '1' || raw === 'aprobado' || raw === 'aprobada' || raw === 'ok') return 'ok';
+    if (raw === '2' || raw === 'reprobado' || raw === 'reprobada') return 'fail';
+    return null;
+  };
 
   return (
     <div className="p-6">
@@ -210,7 +237,7 @@ const Vimica: React.FC = () => {
 
       {selected && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-4xl max-h-[85vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-lg shadow-lg w-[95vw] max-w-[1800px] max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800">Datos Enviados - ID {selected.Id ?? '-'}</h2>
               <button
@@ -220,46 +247,95 @@ const Vimica: React.FC = () => {
                 Cerrar
               </button>
             </div>
-            <div className="p-4 max-h-[70vh] overflow-auto">
+
+            <div className="p-4">
               {selectedAvanceCursos.length === 0 ? (
                 <div className="text-sm text-gray-500">No hay registros en AvanceCursos para este envío.</div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 text-sm">
-                    <thead className="bg-gray-100 text-gray-700">
-                      <tr>
-                        <th className="px-3 py-2 text-left border-b">IdCurso</th>
-                        <th className="px-3 py-2 text-left border-b">RutAlumno</th>
-                        <th className="px-3 py-2 text-left border-b">PorcentajeAvance</th>
-                        <th className="px-3 py-2 text-left border-b">PorcentajeAsistenciaAlumno</th>
-                        <th className="px-3 py-2 text-left border-b">NotaTeorica</th>
-                        <th className="px-3 py-2 text-left border-b">EstadoTeorica</th>
-                        <th className="px-3 py-2 text-left border-b">NotaPractica</th>
-                        <th className="px-3 py-2 text-left border-b">EstadoPractica</th>
-                        <th className="px-3 py-2 text-left border-b">NotaFinal</th>
-                        <th className="px-3 py-2 text-left border-b">EstadoCurso</th>
-                        <th className="px-3 py-2 text-left border-b">Observacion</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedAvanceCursos.map((item: any, idx: number) => (
-                        <tr key={`${item?.IdCurso || 'sin-curso'}-${item?.RutAlumno || 'sin-rut'}-${idx}`} className="odd:bg-white even:bg-gray-50">
-                          <td className="px-3 py-2 border-b">{item?.IdCurso ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.RutAlumno ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.PorcentajeAvance ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.PorcentajeAsistenciaAlumno ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.NotaTeorica ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.EstadoTeorica ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.NotaPractica ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.EstadoPractica ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.NotaFinal ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.EstadoCurso ?? ''}</td>
-                          <td className="px-3 py-2 border-b">{item?.Observacion ?? ''}</td>
+                <>
+                  <div className="overflow-auto max-h-[68vh] border border-gray-200 rounded">
+                    <table className="min-w-full text-sm">
+                      <thead className="text-gray-700">
+                        <tr>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">IdCurso</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">RutAlumno</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">Status</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">PorcentajeAvance</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">PorcentajeAsistenciaAlumno</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">NotaTeorica</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">EstadoTeorica</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">NotaPractica</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">EstadoPractica</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">NotaFinal</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">EstadoCurso</th>
+                          <th className="px-3 py-2 text-left border-b bg-gray-100 sticky top-0 z-10">Observacion</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {pagedAvanceCursos.map((item: any, idx: number) => {
+                          const status = getStatusType(item);
+                          return (
+                            <tr key={`${item?.IdCurso || 'sin-curso'}-${item?.RutAlumno || 'sin-rut'}-${idx}`} className="odd:bg-white even:bg-gray-50">
+                              <td className="px-3 py-2 border-b">{item?.IdCurso ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.RutAlumno ?? ''}</td>
+                              <td className="px-3 py-2 border-b">
+                                {status === 'ok' ? (
+                                  <CheckCircle2 className="w-4 h-4 text-green-600" aria-label="Aprobado" />
+                                ) : status === 'fail' ? (
+                                  <XCircle className="w-4 h-4 text-red-600" aria-label="Reprobado" />
+                                ) : null}
+                              </td>
+                              <td className="px-3 py-2 border-b">{item?.PorcentajeAvance ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.PorcentajeAsistenciaAlumno ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.NotaTeorica ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.EstadoTeorica ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.NotaPractica ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.EstadoPractica ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.NotaFinal ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.EstadoCurso ?? ''}</td>
+                              <td className="px-3 py-2 border-b">{item?.Observacion ?? ''}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-3 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <span>Filas por página:</span>
+                      <select
+                        value={modalPageSize}
+                        onChange={(e) => setModalPageSize(Number(e.target.value))}
+                        className="border border-gray-300 rounded px-2 py-1 bg-white"
+                      >
+                        <option value={10}>10</option>
+                        <option value={20}>20</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                      <span>Total: {selectedAvanceCursos.length}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span>Página {modalPage} de {modalTotalPages}</span>
+                      <button
+                        onClick={() => setModalPage((p) => Math.max(1, p - 1))}
+                        disabled={modalPage <= 1}
+                        className="px-3 py-1.5 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        onClick={() => setModalPage((p) => Math.min(modalTotalPages, p + 1))}
+                        disabled={modalPage >= modalTotalPages}
+                        className="px-3 py-1.5 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
