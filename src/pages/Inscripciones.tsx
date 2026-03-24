@@ -66,6 +66,12 @@ const Inscripciones: React.FC = () => {
     return map;
   }, [empresas]);
 
+  const defaultEmpresaCode = useMemo(() => {
+    if (empresaCode === undefined || empresaCode === null) return undefined;
+    const normalized = Number(empresaCode);
+    return Number.isFinite(normalized) ? normalized : undefined;
+  }, [empresaCode]);
+
   const normalizeEmpresaCode = (value: any): number | undefined => {
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -100,7 +106,10 @@ const Inscripciones: React.FC = () => {
         modalidadesApi.list(),
         ejecutivosApi.list(),
       ]);
-      setEmpresas(empresaItems);
+      const sortedEmpresas = [...empresaItems].sort((a, b) =>
+        String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' })
+      );
+      setEmpresas(sortedEmpresas);
       setModalidades(modalidadItems);
       setEjecutivos(ejecutivoItems);
     } catch (e) {
@@ -172,9 +181,8 @@ const Inscripciones: React.FC = () => {
     }
 
     const nextEditing: Partial<Inscripcion> = { numeroInscripcion: next };
-    if (empresaCode !== undefined && empresaCode !== null) {
-      const normalized = Number(empresaCode);
-      if (Number.isFinite(normalized)) nextEditing.empresa = normalized;
+    if (defaultEmpresaCode !== undefined) {
+      nextEditing.empresa = defaultEmpresaCode;
     }
 
     setEditing(nextEditing);
@@ -218,7 +226,7 @@ const Inscripciones: React.FC = () => {
             modalidadByCode={modalidadByCode}
             ejecutivoByCode={ejecutivoByCode}
               empresaByName={empresaByName}
-              defaultEmpresaCode={empresaCode}
+              defaultEmpresaCode={defaultEmpresaCode}
             />
           </div>
         </div>

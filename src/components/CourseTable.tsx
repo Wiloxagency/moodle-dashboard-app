@@ -7,9 +7,11 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   showVimicaButton?: boolean;
+  showEmpresaColumn?: boolean;
+  empresaByCode?: Record<number, string>;
 }
 
-const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton }) => {
+const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton, showEmpresaColumn, empresaByCode }) => {
   const parseDateOnly = (value?: string): Date | null => {
     if (!value) return null;
     const datePart = value.substring(0, 10);
@@ -40,6 +42,13 @@ const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton }
     return d ? d.toLocaleDateString('es-CL') : '';
   };
 
+  const getEmpresaName = (empresaCode?: number): string => {
+    if (empresaCode === undefined || empresaCode === null) return '-';
+    const name = empresaByCode?.[Number(empresaCode)]?.trim();
+    if (name) return name;
+    return `Empresa ${empresaCode}`;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm w-full max-w-[1150px] mx-auto">
       <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
@@ -66,8 +75,9 @@ const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton }
           <thead className="bg-blue-600 text-white">
             <tr>
               <th className="px-4 py-3 text-left text-sm font-medium">No. Inscripción</th>
+              {showEmpresaColumn && <th className="px-4 py-3 text-left text-sm font-medium">Nombre de Empresa</th>}
               <th className="px-4 py-3 text-left text-sm font-medium">Moodle ID</th>
-              <th className="px-4 py-3 text-left text-sm font-medium">Correlativo</th>
+              {!showEmpresaColumn && <th className="px-4 py-3 text-left text-sm font-medium">Correlativo</th>}
               <th className="px-4 py-3 text-left text-sm font-medium">Curso</th>
               <th className="px-4 py-3 text-left text-sm font-medium min-w-[140px]">Fecha de Inicio</th>
               <th className="px-4 py-3 text-left text-sm font-medium min-w-[140px]">Fecha de Cierre</th>
@@ -105,12 +115,15 @@ const CourseTable: React.FC<Props> = ({ data, loading, error, showVimicaButton }
                 const days = calculateDaysRemaining(insc.termino);
                 const totalAlumnos = insc.participantCount ?? insc.numAlumnosInscritos ?? 0;
                 return (
-                  <tr key={String(insc.numeroInscripcion)} className="hover:bg-gray-50">
+                  <tr key={`${String(insc.numeroInscripcion)}-${String(insc.empresa ?? 'na')}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-sm text-gray-900 font-medium">
                       {insc.numeroInscripcion}
                     </td>
+                    {showEmpresaColumn && (
+                      <td className="px-4 py-3 text-sm text-gray-700">{getEmpresaName(insc.empresa)}</td>
+                    )}
                     <td className="px-4 py-3 text-sm text-gray-700">{insc.idMoodle || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{insc.correlativo ?? '-'}</td>
+                    {!showEmpresaColumn && <td className="px-4 py-3 text-sm text-gray-700">{insc.correlativo ?? '-'}</td>}
                     <td className="px-4 py-3 text-sm text-gray-700">{insc.nombreCurso || '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{formatISODate(insc.inicio)}</td>
                     <td className="px-4 py-3 text-sm text-gray-700">{formatISODate(insc.termino)}</td>

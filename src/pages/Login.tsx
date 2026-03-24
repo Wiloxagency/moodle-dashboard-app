@@ -24,9 +24,10 @@ const LoginPage: React.FC = () => {
   const [pendingUser, setPendingUser] = useState<StoredUser | null>(null);
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
-  const [selectedEmpresa, setSelectedEmpresa] = useState('');
+  const [selectedEmpresa, setSelectedEmpresa] = useState('ALL');
 
   const isSuperAdminStep = !!pendingUser;
+  const ALL_EMPRESAS_VALUE = 'ALL';
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -39,10 +40,11 @@ const LoginPage: React.FC = () => {
       }
       setSubmitting(true);
       try {
+        const selectedEmpresaCode = selectedEmpresa === ALL_EMPRESAS_VALUE ? undefined : Number(selectedEmpresa);
         const nextUser = {
           username: pendingUser.username,
           role: pendingUser.role,
-          empresa: Number(selectedEmpresa),
+          empresa: selectedEmpresaCode,
         };
         setSessionUser(nextUser);
         const redirectTo = state?.from?.pathname && state.from.pathname !== '/' ? state.from.pathname : '/dashboard';
@@ -77,7 +79,7 @@ const LoginPage: React.FC = () => {
 
       if (storedUser.username.toLowerCase() === 'superadmin') {
         setPendingUser(storedUser);
-        setSelectedEmpresa('');
+        setSelectedEmpresa(ALL_EMPRESAS_VALUE);
         setEmpresas([]);
         setLoadingEmpresas(true);
         try {
@@ -183,7 +185,7 @@ const LoginPage: React.FC = () => {
                 disabled={loadingEmpresas}
                 className="mt-1 block w-full rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-1 text-sm border-gray-300 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
               >
-                <option value="">Seleccione una empresa</option>
+                <option value={ALL_EMPRESAS_VALUE}>Todas las Empresas</option>
                 {empresas.map((empresa) => (
                   <option key={empresa.code} value={empresa.code}>
                     {empresa.nombre}
@@ -198,7 +200,7 @@ const LoginPage: React.FC = () => {
 
           <button
             type="submit"
-            disabled={submitting || (isSuperAdminStep && (!selectedEmpresa || loadingEmpresas))}
+            disabled={submitting || (isSuperAdminStep && loadingEmpresas)}
             className="w-full flex justify-center items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md shadow-sm transition-colors"
           >
             {submitting ? (isSuperAdminStep ? 'Continuando...' : 'Ingresando...') : (isSuperAdminStep ? 'Continuar' : 'Ingresar')}

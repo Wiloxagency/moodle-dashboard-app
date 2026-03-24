@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Trash2, Loader2, CalendarDays } from 'lucide-react';
 import { type Inscripcion } from '../services/inscripciones';
 import { apiService } from '../services/api';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
@@ -24,7 +24,7 @@ const empty: Inscripcion = {
   // Mantener campos requeridos por el tipo, aunque no se editen en UI
   codigoCurso: '',
   statusAlumnos: 'Pendiente',
-  empresa: 0,
+  empresa: undefined as any,
   codigoSence: undefined,
   ordenCompra: undefined,
   idSence: undefined,
@@ -64,6 +64,28 @@ const toISODate = (display: string) => {
   return `${yy}-${mm}-${dd}T00:00:00.000Z`;
 };
 
+const toDateInputValue = (iso: string | undefined) => {
+  if (!iso) return '';
+  const datePart = iso.substring(0, 10);
+  const [y, m, d] = datePart.split('-');
+  if (!y || !m || !d) return '';
+  return `${y}-${m}-${d}`;
+};
+
+const fromDateInputValueToDisplay = (value: string) => {
+  if (!value) return '';
+  const [y, m, d] = value.split('-');
+  if (!y || !m || !d) return '';
+  return `${d}/${m}/${y}`;
+};
+
+const fromDateInputValueToISO = (value: string) => {
+  if (!value) return undefined;
+  const [y, m, d] = value.split('-');
+  if (!y || !m || !d) return undefined;
+  return `${y}-${m}-${d}T00:00:00.000Z`;
+};
+
 const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, empresaByCode, empresaByName, defaultEmpresaCode }) => {
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
@@ -76,8 +98,20 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   // Local state for date inputs
   const [inicioStr, setInicioStr] = useState('');
   const [terminoStr, setTerminoStr] = useState('');
+  const [empresaSearch, setEmpresaSearch] = useState('');
+  const [senceSearch, setSenceSearch] = useState('');
+  const inicioDatePickerRef = useRef<HTMLInputElement | null>(null);
+  const terminoDatePickerRef = useRef<HTMLInputElement | null>(null);
 
   const isEditing = Boolean(initial && (initial as any)._id);
+  const isAllEmpresasMode = defaultEmpresaCode === undefined || defaultEmpresaCode === null;
+
+  const empresaOptions = useMemo(() => {
+    return Object.entries(empresaByCode || {})
+      .map(([code, nombre]) => ({ code: Number(code), nombre: String(nombre || '').trim() }))
+      .filter((item) => Number.isFinite(item.code) && item.nombre !== '')
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }, [empresaByCode]);
 
   const normalizeEmpresaCode = (value: any): number | undefined => {
     if (value === undefined || value === null || value === '') return undefined;
@@ -92,6 +126,47 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   };
 
   const normalizeText = (value?: string) => (value || '').trim().toLowerCase();
+
+  const filteredEmpresaOptions = useMemo(() => {
+    const query = normalizeText(empresaSearch);
+    if (!query) return empresaOptions;
+    return empresaOptions.filter((empresa) =>
+      String(empresa.code).includes(query) || normalizeText(empresa.nombre).includes(query)
+    );
+  }, [empresaOptions, empresaSearch]);
+
+  const senceOptions = useMemo(() => {
+    return senceItems.map((item) => {
+      const code = String(item.codigo_sence || item.code || '').trim();
+      const nombre = String(item.nombre_sence || '').trim();
+      const descripcion = [nombre, item.area, item.especialidad]
+        .map((part) => String(part || '').trim())
+        .filter((part) => part !== '')
+        .join(' | ');
+      return {
+        key: item._id || code,
+        code,
+        nombre,
+        descripcion,
+      };
+    });
+  }, [senceItems]);
+
+  const filteredSenceOptions = useMemo(() => {
+    const query = normalizeText(senceSearch);
+    if (!query) return senceOptions;
+    return senceOptions.filter((item) =>
+      normalizeText(item.code).includes(query) ||
+      normalizeText(item.nombre).includes(query) ||
+      normalizeText(item.descripcion).includes(query)
+    );
+  }, [senceOptions, senceSearch]);
+
+  const getSenceOptionLabel = (code: string) => {
+    const found = senceOptions.find((item) => item.code === code);
+    if (!found) return code;
+    return found.nombre ? `${found.code} - ${found.nombre}` : found.code;
+  };
 
   const buildEjecutivoLabel = (e: Ejecutivo) => {
     const apellidos = (e as any).apellidos ?? (e as any).apellido ?? '';
@@ -175,13 +250,31 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     const normalizedEmpresa = normalizeEmpresaCode(newState.empresa);
     if (normalizedEmpresa !== undefined) {
       newState.empresa = normalizedEmpresa;
-    } else if (newState.empresa === undefined || newState.empresa === null || newState.empresa === '') {
-      if (defaultEmpresaCode !== undefined) newState.empresa = defaultEmpresaCode;
+    } else if (defaultEmpresaCode !== undefined) {
+      newState.empresa = defaultEmpresaCode;
+    } else {
+      newState.empresa = undefined;
     }
+
+    const selectedEmpresaCode = normalizeEmpresaCode(newState.empresa);
+    if (selectedEmpresaCode !== undefined) {
+      const empresaName = empresaByCode?.[selectedEmpresaCode];
+      setEmpresaSearch(empresaName ? `${selectedEmpresaCode} - ${empresaName}` : String(selectedEmpresaCode));
+    } else {
+      setEmpresaSearch('');
+    }
+
+    const selectedSenceCode = String(newState.codigoSence || '').trim();
+    if (selectedSenceCode) {
+      setSenceSearch(getSenceOptionLabel(selectedSenceCode));
+    } else {
+      setSenceSearch('');
+    }
+
     setForm(newState);
     setInicioStr(toDisplayDate(newState.inicio));
     setTerminoStr(toDisplayDate(newState.termino));
-  }, [initial, defaultEmpresaCode, empresaByName]);
+  }, [initial, defaultEmpresaCode, empresaByName, empresaByCode]);
 
   useEffect(() => {
     let mounted = true;
@@ -213,23 +306,74 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     }));
   };
 
+  const handleEmpresaInputChange = (value: string) => {
+    setEmpresaSearch(value);
+    if (!value.trim()) {
+      setForm((prev) => ({ ...prev, empresa: undefined as any }));
+    }
+  };
+
+  const handleEmpresaPick = (code: number, nombre: string) => {
+    setForm((prev) => ({ ...prev, empresa: code }));
+    setEmpresaSearch(`${code} - ${nombre}`);
+  };
+
+  const handleSenceInputChange = (value: string) => {
+    setSenceSearch(value);
+    if (!value.trim()) {
+      setForm((prev) => ({ ...prev, codigoSence: undefined }));
+    }
+  };
+
+  const handleSencePick = (code: string) => {
+    setForm((prev) => ({ ...prev, codigoSence: code }));
+    setSenceSearch(getSenceOptionLabel(code));
+  };
+
   const handleDateChange = (field: 'inicio' | 'termino', val: string) => {
-      // Allow numbers and slashes only
-      if (!/^[\d\/]*$/.test(val)) return;
-      if (val.length > 10) return;
+    // Allow numbers and slashes only
+    if (!/^[\d\/]*$/.test(val)) return;
+    if (val.length > 10) return;
 
-      if (field === 'inicio') setInicioStr(val);
-      else setTerminoStr(val);
+    if (field === 'inicio') setInicioStr(val);
+    else setTerminoStr(val);
 
-      // Validate format dd/mm/yyyy
-      if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
-          const iso = toISODate(val);
-          if (iso) {
-              setForm(prev => ({ ...prev, [field]: iso }));
-          }
-      } else if (val === '') {
-          setForm(prev => ({ ...prev, [field]: undefined }));
+    // Validate format dd/mm/yyyy
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
+      const iso = toISODate(val);
+      if (iso) {
+        setForm((prev) => ({ ...prev, [field]: iso }));
       }
+    } else if (val === '') {
+      setForm((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleDatePickerChange = (field: 'inicio' | 'termino', value: string) => {
+    const display = fromDateInputValueToDisplay(value);
+    const iso = fromDateInputValueToISO(value);
+
+    if (field === 'inicio') setInicioStr(display);
+    else setTerminoStr(display);
+
+    setForm((prev) => ({ ...prev, [field]: iso }));
+
+    if (field === 'inicio' && inicioDatePickerRef.current) {
+      inicioDatePickerRef.current.blur();
+    } else if (field === 'termino' && terminoDatePickerRef.current) {
+      terminoDatePickerRef.current.blur();
+    }
+  };
+
+  const openDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    const picker = input as HTMLInputElement & { showPicker?: () => void };
+    if (typeof picker.showPicker === 'function') {
+      picker.showPicker();
+      return;
+    }
+    input.focus();
+    input.click();
   };
 
   const handleVerifyMoodle = async () => {
@@ -280,6 +424,9 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         payload.empresa = normalizedEmpresa;
       } else if (defaultEmpresaCode !== undefined) {
         payload.empresa = defaultEmpresaCode;
+      } else {
+        window.alert('Seleccione una empresa');
+        return;
       }
       // Normalizar modalidad/ejecutivo a códigos si vienen como texto
       if (payload.modalidad !== undefined && payload.modalidad !== null && payload.modalidad !== '') {
@@ -338,8 +485,44 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Empresa</label>
-          <input name="empresa" value={empresaLabel} onChange={change} className="mt-1 w-full border rounded px-3 py-2 bg-gray-100" disabled />
+          <label className="block text-sm font-medium text-gray-700">Empresa {isAllEmpresasMode && <span className="text-red-500">*</span>}</label>
+          {isAllEmpresasMode ? (
+            <div className="relative">
+              <input
+                type="text"
+                value={empresaSearch}
+                onChange={(e) => handleEmpresaInputChange(e.target.value)}
+                placeholder="Buscar por código o nombre..."
+                className="mt-1 w-full border rounded px-3 py-2"
+                autoComplete="off"
+              />
+              {filteredEmpresaOptions.length > 0 && empresaSearch.trim() && (
+                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
+                  {filteredEmpresaOptions.map((empresa) => (
+                    <button
+                      type="button"
+                      key={empresa.code}
+                      onClick={() => handleEmpresaPick(empresa.code, empresa.nombre)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                    >
+                      {empresa.code} - {empresa.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {empresaSearch.trim() && filteredEmpresaOptions.length === 0 && (
+                <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
+              )}
+            </div>
+          ) : (
+            <input
+              name="empresa"
+              value={empresaLabel}
+              onChange={change}
+              className="mt-1 w-full border rounded px-3 py-2 bg-gray-100"
+              disabled
+            />
+          )}
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">N° Correlativo <span className="text-red-500">*</span></label>
@@ -351,23 +534,36 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Código Sence</label>
-          <select
-            name="codigoSence"
-            value={form.codigoSence || ''}
-            onChange={change}
-            className="mt-1 w-full border rounded px-3 py-2"
-          >
-            <option value="">Seleccione...</option>
-            {senceItems.map((s) => {
-              const code = s.codigo_sence || String(s.code);
-              const name = (s.nombre_sence || '').trim();
-              const show = name.length > 50 ? name.slice(0, 47) + '...' : name;
-              return (<option key={s._id || code} value={code}>{`${code} - ${show}`}</option>);
-            })}
-            {form.codigoSence && !senceItems.some((s) => (s.codigo_sence || String(s.code)) === form.codigoSence) && (
-              <option value={form.codigoSence}>{form.codigoSence} (actual)</option>
+          <div className="relative">
+            <input
+              type="text"
+              value={senceSearch}
+              onChange={(e) => handleSenceInputChange(e.target.value)}
+              placeholder="Buscar por código, nombre o descripción..."
+              className="mt-1 w-full border rounded px-3 py-2"
+              autoComplete="off"
+            />
+            {filteredSenceOptions.length > 0 && senceSearch.trim() && (
+              <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
+                {filteredSenceOptions.map((item) => {
+                  const show = item.nombre.length > 60 ? `${item.nombre.slice(0, 57)}...` : item.nombre;
+                  return (
+                    <button
+                      type="button"
+                      key={item.key}
+                      onClick={() => handleSencePick(item.code)}
+                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                    >
+                      {item.nombre ? `${item.code} - ${show}` : item.code}
+                    </button>
+                  );
+                })}
+              </div>
             )}
-          </select>
+            {senceSearch.trim() && filteredSenceOptions.length === 0 && (
+              <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
+            )}
+          </div>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">ID Sence</label>
@@ -423,25 +619,63 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         </div>
 <div>
           <label className="block text-sm font-medium text-gray-700">Fecha de Inicio <span className="text-red-500">*</span></label>
-          <input 
-            type="text" 
-            placeholder="dd/mm/yyyy"
-            value={inicioStr} 
-            onChange={(e) => handleDateChange('inicio', e.target.value)} 
-            required 
-            className="mt-1 w-full border rounded px-3 py-2" 
-          />
+          <div className="mt-1 flex items-center gap-2 relative">
+            <input
+              type="text"
+              placeholder="dd/mm/yyyy"
+              value={inicioStr}
+              onChange={(e) => handleDateChange('inicio', e.target.value)}
+              required
+              className="w-full border rounded px-3 py-2"
+            />
+            <button
+              type="button"
+              onClick={() => openDatePicker(inicioDatePickerRef.current)}
+              className="px-3 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+              title="Abrir calendario"
+            >
+              <CalendarDays className="w-4 h-4" />
+            </button>
+            <input
+              ref={inicioDatePickerRef}
+              type="date"
+              value={toDateInputValue(form.inicio)}
+              onChange={(e) => handleDatePickerChange('inicio', e.target.value)}
+              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
         </div>
 <div>
           <label className="block text-sm font-medium text-gray-700">Fecha Final <span className="text-red-500">*</span></label>
-          <input 
-            type="text" 
-            placeholder="dd/mm/yyyy"
-            value={terminoStr} 
-            onChange={(e) => handleDateChange('termino', e.target.value)} 
-            required 
-            className="mt-1 w-full border rounded px-3 py-2" 
-          />
+          <div className="mt-1 flex items-center gap-2 relative">
+            <input
+              type="text"
+              placeholder="dd/mm/yyyy"
+              value={terminoStr}
+              onChange={(e) => handleDateChange('termino', e.target.value)}
+              required
+              className="w-full border rounded px-3 py-2"
+            />
+            <button
+              type="button"
+              onClick={() => openDatePicker(terminoDatePickerRef.current)}
+              className="px-3 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+              title="Abrir calendario"
+            >
+              <CalendarDays className="w-4 h-4" />
+            </button>
+            <input
+              ref={terminoDatePickerRef}
+              type="date"
+              value={toDateInputValue(form.termino)}
+              onChange={(e) => handleDatePickerChange('termino', e.target.value)}
+              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
         </div>
 <div>
           <label className="block text-sm font-medium text-gray-700">Ejecutivo <span className="text-red-500">*</span></label>

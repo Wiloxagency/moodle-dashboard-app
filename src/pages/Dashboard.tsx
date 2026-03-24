@@ -7,6 +7,7 @@ import { dashboardApi, type DashboardCache, type DashboardInscripcion } from '..
 import { inscripcionesApi } from '../services/inscripciones';
 import config from '../config/environment';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
+import { empresasApi } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
 
 const MONTHS = [
@@ -70,6 +71,7 @@ const Dashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalidades, setModalidades] = useState<string[]>([]);
+  const [empresaByCode, setEmpresaByCode] = useState<Record<number, string>>({});
 
   const [reportUpdating, setReportUpdating] = useState(false);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
@@ -79,6 +81,7 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const empresaCode = user?.empresa;
   const showVimicaButton = Number(empresaCode) === 1;
+  const isAllEmpresasMode = user?.role === 'superAdmin' && (empresaCode === undefined || empresaCode === null || !Number.isFinite(Number(empresaCode)));
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedModalidades, setSelectedModalidades] = useState<string[]>([]);
@@ -118,10 +121,32 @@ const Dashboard: React.FC = () => {
       .catch(() => setModalidades([]));
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    empresasApi
+      .list()
+      .then((items) => {
+        if (!mounted) return;
+        const map: Record<number, string> = {};
+        items.forEach((empresa) => {
+          map[empresa.code] = (empresa.nombre || '').trim();
+        });
+        setEmpresaByCode(map);
+      })
+      .catch(() => {
+        if (mounted) setEmpresaByCode({});
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const inscripciones: DashboardInscripcion[] = useMemo(() => {
     const rows = cache?.inscripciones || [];
     if (empresaCode === undefined || empresaCode === null) return rows;
     const target = Number(empresaCode);
+    if (!Number.isFinite(target)) return rows;
     return rows.filter((ins) => Number(ins.empresa) === target);
   }, [cache, empresaCode]);
 
@@ -371,7 +396,14 @@ const Dashboard: React.FC = () => {
           </div>
           
           <div className="w-full max-w-[1150px] mx-auto">
-            <CourseTable data={filteredInscripciones} loading={loading} error={error} showVimicaButton={showVimicaButton} />
+            <CourseTable
+              data={filteredInscripciones}
+              loading={loading}
+              error={error}
+              showVimicaButton={showVimicaButton}
+              showEmpresaColumn={isAllEmpresasMode}
+              empresaByCode={empresaByCode}
+            />
           </div>
         </div>
       </div>
