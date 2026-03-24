@@ -1,5 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Trash2, Loader2, CalendarDays } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Trash2, Loader2 } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import { parseISO } from 'date-fns';
+import 'react-datepicker/dist/react-datepicker.css';
 import { type Inscripcion } from '../services/inscripciones';
 import { apiService } from '../services/api';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
@@ -40,52 +43,6 @@ const empty: Inscripcion = {
   comentarios: undefined,
 };
 
-const toDisplayDate = (iso: string | undefined) => {
-  if (!iso) return '';
-  try {
-      const parts = iso.substring(0, 10).split('-');
-      if (parts.length < 3) return '';
-      const [y, m, d] = parts;
-      return `${d}/${m}/${y}`;
-  } catch { return ''; }
-};
-
-const toISODate = (display: string) => {
-  const parts = display.split('/');
-  if (parts.length !== 3) return null;
-  const d = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  const y = parseInt(parts[2], 10);
-  if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
-  if (d < 1 || d > 31 || m < 1 || m > 12) return null;
-  const dd = String(d).padStart(2, '0');
-  const mm = String(m).padStart(2, '0');
-  const yy = String(y);
-  return `${yy}-${mm}-${dd}T00:00:00.000Z`;
-};
-
-const toDateInputValue = (iso: string | undefined) => {
-  if (!iso) return '';
-  const datePart = iso.substring(0, 10);
-  const [y, m, d] = datePart.split('-');
-  if (!y || !m || !d) return '';
-  return `${y}-${m}-${d}`;
-};
-
-const fromDateInputValueToDisplay = (value: string) => {
-  if (!value) return '';
-  const [y, m, d] = value.split('-');
-  if (!y || !m || !d) return '';
-  return `${d}/${m}/${y}`;
-};
-
-const fromDateInputValueToISO = (value: string) => {
-  if (!value) return undefined;
-  const [y, m, d] = value.split('-');
-  if (!y || !m || !d) return undefined;
-  return `${y}-${m}-${d}T00:00:00.000Z`;
-};
-
 const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, empresaByCode, empresaByName, defaultEmpresaCode }) => {
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
@@ -96,14 +53,12 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   const [senceItems, setSenceItems] = useState<Sence[]>([]);
 
   // Local state for date inputs
-  const [inicioStr, setInicioStr] = useState('');
-  const [terminoStr, setTerminoStr] = useState('');
+  const [inicioDate, setInicioDate] = useState<Date | null>(null);
+  const [terminoDate, setTerminoDate] = useState<Date | null>(null);
   const [empresaSearch, setEmpresaSearch] = useState('');
   const [senceSearch, setSenceSearch] = useState('');
   const [empresaOpen, setEmpresaOpen] = useState(false);
   const [senceOpen, setSenceOpen] = useState(false);
-  const inicioDatePickerRef = useRef<HTMLInputElement | null>(null);
-  const terminoDatePickerRef = useRef<HTMLInputElement | null>(null);
 
   const isEditing = Boolean(initial && (initial as any)._id);
   const isAllEmpresasMode = defaultEmpresaCode === undefined || defaultEmpresaCode === null;
@@ -274,8 +229,8 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     }
 
     setForm(newState);
-    setInicioStr(toDisplayDate(newState.inicio));
-    setTerminoStr(toDisplayDate(newState.termino));
+    setInicioDate(newState.inicio ? parseISO(String(newState.inicio)) : null);
+    setTerminoDate(newState.termino ? parseISO(String(newState.termino)) : null);
   }, [initial, defaultEmpresaCode, empresaByName, empresaByCode]);
 
   useEffect(() => {
@@ -336,51 +291,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     setSenceOpen(false);
   };
 
-  const handleDateChange = (field: 'inicio' | 'termino', val: string) => {
-    // Allow numbers and slashes only
-    if (!/^[\d\/]*$/.test(val)) return;
-    if (val.length > 10) return;
 
-    if (field === 'inicio') setInicioStr(val);
-    else setTerminoStr(val);
-
-    // Validate format dd/mm/yyyy
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) {
-      const iso = toISODate(val);
-      if (iso) {
-        setForm((prev) => ({ ...prev, [field]: iso }));
-      }
-    } else if (val === '') {
-      setForm((prev) => ({ ...prev, [field]: undefined }));
-    }
-  };
-
-  const handleDatePickerChange = (field: 'inicio' | 'termino', value: string) => {
-    const display = fromDateInputValueToDisplay(value);
-    const iso = fromDateInputValueToISO(value);
-
-    if (field === 'inicio') setInicioStr(display);
-    else setTerminoStr(display);
-
-    setForm((prev) => ({ ...prev, [field]: iso }));
-
-    if (field === 'inicio' && inicioDatePickerRef.current) {
-      inicioDatePickerRef.current.blur();
-    } else if (field === 'termino' && terminoDatePickerRef.current) {
-      terminoDatePickerRef.current.blur();
-    }
-  };
-
-  const openDatePicker = (input: HTMLInputElement | null) => {
-    if (!input) return;
-    const picker = input as HTMLInputElement & { showPicker?: () => void };
-    if (typeof picker.showPicker === 'function') {
-      picker.showPicker();
-      return;
-    }
-    input.focus();
-    input.click();
-  };
 
   const handleVerifyMoodle = async () => {
     const id = String(form.idMoodle || '').trim();
@@ -454,11 +365,6 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         }
       }
 
-      // Validar fecha de inicio provista desde el input de texto
-      if (!payload.inicio && inicioStr) {
-        const iso = toISODate(inicioStr);
-        if (iso) payload.inicio = iso;
-      }
       await onSave(payload);
     } finally {
       setSaving(false);
@@ -606,7 +512,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
             required
             value={form.modalidad || ''}
             onChange={change}
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-1 w-full border rounded px-3 py-2 h-10"
           >
             <option value="">Seleccione modalidad...</option>
             {modalidades.map(m => {
@@ -631,61 +537,37 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         </div>
 <div>
           <label className="block text-sm font-medium text-gray-700">Fecha de Inicio <span className="text-red-500">*</span></label>
-          <div className="mt-1 flex items-center gap-2 relative">
-            <input
-              type="text"
-              placeholder="dd/mm/yyyy"
-              value={inicioStr}
-              onChange={(e) => handleDateChange('inicio', e.target.value)}
-              required
-              className="w-full border rounded px-3 py-2"
-            />
-            <button
-              type="button"
-              onClick={() => openDatePicker(inicioDatePickerRef.current)}
-              className="px-3 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-              title="Abrir calendario"
-            >
-              <CalendarDays className="w-4 h-4" />
-            </button>
-            <input
-              ref={inicioDatePickerRef}
-              type="date"
-              value={toDateInputValue(form.inicio)}
-              onChange={(e) => handleDatePickerChange('inicio', e.target.value)}
-              className="absolute opacity-0 w-0 h-0"
-              tabIndex={-1}
-              aria-hidden="true"
+          <div className="mt-1">
+            <DatePicker
+              selected={inicioDate}
+              onChange={(date: Date | null) => {
+                setInicioDate(date);
+                setForm((prev) => ({ ...prev, inicio: date ? date.toISOString() : '' }));
+              }}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="dd/mm/yyyy"
+              className="w-full border rounded px-3 py-2 h-10"
+              isClearable
+              shouldCloseOnSelect
+              calendarStartDay={1}
             />
           </div>
         </div>
 <div>
           <label className="block text-sm font-medium text-gray-700">Fecha Final <span className="text-red-500">*</span></label>
-          <div className="mt-1 flex items-center gap-2 relative">
-            <input
-              type="text"
-              placeholder="dd/mm/yyyy"
-              value={terminoStr}
-              onChange={(e) => handleDateChange('termino', e.target.value)}
-              required
-              className="w-full border rounded px-3 py-2"
-            />
-            <button
-              type="button"
-              onClick={() => openDatePicker(terminoDatePickerRef.current)}
-              className="px-3 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
-              title="Abrir calendario"
-            >
-              <CalendarDays className="w-4 h-4" />
-            </button>
-            <input
-              ref={terminoDatePickerRef}
-              type="date"
-              value={toDateInputValue(form.termino)}
-              onChange={(e) => handleDatePickerChange('termino', e.target.value)}
-              className="absolute opacity-0 w-0 h-0"
-              tabIndex={-1}
-              aria-hidden="true"
+          <div className="mt-1">
+            <DatePicker
+              selected={terminoDate}
+              onChange={(date: Date | null) => {
+                setTerminoDate(date);
+                setForm((prev) => ({ ...prev, termino: date ? date.toISOString() : undefined }));
+              }}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="dd/mm/yyyy"
+              className="w-full border rounded px-3 py-2 h-10"
+              isClearable
+              shouldCloseOnSelect
+              calendarStartDay={1}
             />
           </div>
         </div>
@@ -696,7 +578,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
             required
             value={form.ejecutivo || ''}
             onChange={change}
-            className="mt-1 w-full border rounded px-3 py-2"
+            className="mt-1 w-full border rounded px-3 py-2 h-10"
           >
             <option value="">Seleccione ejecutivo...</option>
             {ejecutivos.map(e => {
