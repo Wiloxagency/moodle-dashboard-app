@@ -100,6 +100,8 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   const [terminoStr, setTerminoStr] = useState('');
   const [empresaSearch, setEmpresaSearch] = useState('');
   const [senceSearch, setSenceSearch] = useState('');
+  const [empresaOpen, setEmpresaOpen] = useState(false);
+  const [senceOpen, setSenceOpen] = useState(false);
   const inicioDatePickerRef = useRef<HTMLInputElement | null>(null);
   const terminoDatePickerRef = useRef<HTMLInputElement | null>(null);
 
@@ -307,6 +309,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   };
 
   const handleEmpresaInputChange = (value: string) => {
+    setEmpresaOpen(true);
     setEmpresaSearch(value);
     if (!value.trim()) {
       setForm((prev) => ({ ...prev, empresa: undefined as any }));
@@ -315,10 +318,12 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
 
   const handleEmpresaPick = (code: number, nombre: string) => {
     setForm((prev) => ({ ...prev, empresa: code }));
-    setEmpresaSearch(`${code} - ${nombre}`);
+    setEmpresaSearch(nombre);
+    setEmpresaOpen(false);
   };
 
   const handleSenceInputChange = (value: string) => {
+    setSenceOpen(true);
     setSenceSearch(value);
     if (!value.trim()) {
       setForm((prev) => ({ ...prev, codigoSence: undefined }));
@@ -328,6 +333,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   const handleSencePick = (code: string) => {
     setForm((prev) => ({ ...prev, codigoSence: code }));
     setSenceSearch(getSenceOptionLabel(code));
+    setSenceOpen(false);
   };
 
   const handleDateChange = (field: 'inicio' | 'termino', val: string) => {
@@ -492,25 +498,28 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
                 type="text"
                 value={empresaSearch}
                 onChange={(e) => handleEmpresaInputChange(e.target.value)}
-                placeholder="Buscar por código o nombre..."
+                onFocus={() => { setEmpresaOpen(true); setEmpresaSearch(empresaSearch); }}
+                onBlur={() => setTimeout(() => setEmpresaOpen(false), 150)}
+                placeholder="Buscar por nombre..."
                 className="mt-1 w-full border rounded px-3 py-2"
                 autoComplete="off"
               />
-              {filteredEmpresaOptions.length > 0 && empresaSearch.trim() && (
+              {empresaOpen && filteredEmpresaOptions.length > 0 && (
                 <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
                   {filteredEmpresaOptions.map((empresa) => (
                     <button
                       type="button"
                       key={empresa.code}
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleEmpresaPick(empresa.code, empresa.nombre)}
                       className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
                     >
-                      {empresa.code} - {empresa.nombre}
+                      {empresa.nombre}
                     </button>
                   ))}
                 </div>
               )}
-              {empresaSearch.trim() && filteredEmpresaOptions.length === 0 && (
+              {empresaOpen && filteredEmpresaOptions.length === 0 && (
                 <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
               )}
             </div>
@@ -539,11 +548,13 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
               type="text"
               value={senceSearch}
               onChange={(e) => handleSenceInputChange(e.target.value)}
+              onFocus={() => { setSenceOpen(true); setSenceSearch(senceSearch); }}
+              onBlur={() => setTimeout(() => setSenceOpen(false), 150)}
               placeholder="Buscar por código, nombre o descripción..."
               className="mt-1 w-full border rounded px-3 py-2"
               autoComplete="off"
             />
-            {filteredSenceOptions.length > 0 && senceSearch.trim() && (
+            {senceOpen && filteredSenceOptions.length > 0 && (
               <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
                 {filteredSenceOptions.map((item) => {
                   const show = item.nombre.length > 60 ? `${item.nombre.slice(0, 57)}...` : item.nombre;
@@ -551,6 +562,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
                     <button
                       type="button"
                       key={item.key}
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => handleSencePick(item.code)}
                       className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
                     >
@@ -560,7 +572,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
                 })}
               </div>
             )}
-            {senceSearch.trim() && filteredSenceOptions.length === 0 && (
+            {senceOpen && filteredSenceOptions.length === 0 && (
               <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
             )}
           </div>
@@ -641,7 +653,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
               type="date"
               value={toDateInputValue(form.inicio)}
               onChange={(e) => handleDatePickerChange('inicio', e.target.value)}
-              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              className="absolute opacity-0 w-0 h-0"
               tabIndex={-1}
               aria-hidden="true"
             />
@@ -671,7 +683,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
               type="date"
               value={toDateInputValue(form.termino)}
               onChange={(e) => handleDatePickerChange('termino', e.target.value)}
-              className="absolute opacity-0 pointer-events-none w-0 h-0"
+              className="absolute opacity-0 w-0 h-0"
               tabIndex={-1}
               aria-hidden="true"
             />
