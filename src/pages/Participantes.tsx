@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import config from '../config/environment';
 import * as XLSX from 'xlsx';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronUp, ChevronDown, ArrowUpDown, Loader2, Plus, RotateCw } from 'lucide-react';
+import { ChevronUp, ChevronDown, ArrowUpDown, Loader2, Plus } from 'lucide-react';
 import { participantesApi, type Participante } from '../services/participantes';
 import ParticipanteForm from '../components/ParticipanteForm';
 
@@ -43,11 +42,6 @@ const ParticipantesPage: React.FC = () => {
   const [data, setData] = useState<Participante[]>([]);
   const normalizeRut = (v?: string) => (v || "").replace(/[.\-]/g, "").toLowerCase();
 
-  const participantesByRut = useMemo(() => {
-    const m: Record<string, Participante> = {};
-    for (const p of data) if (p.rut) m[normalizeRut(p.rut)] = p;
-    return m;
-  }, [data]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
   const [perPage, setPerPage] = useState(25);
@@ -56,16 +50,9 @@ const ParticipantesPage: React.FC = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Participante | null>(null);
-  const [importing, setImporting] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
   const [excelImporting, setExcelImporting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportReloading, setReportReloading] = useState(false);
-  const [reportUpdatedAt, setReportUpdatedAt] = useState<string | null>(null);
-  type NumericGradeRow = { numeroInscripcion: number; IdCurso: string; RutAlumno: string; PorcentajeAvance: number | null; PorcentajeAsistenciaAlumno: number | null; NotaFinal: number | null }
-const [reportData, setReportData] = useState<NumericGradeRow[] | null>(null);
-  const [reportError, setReportError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -113,19 +100,23 @@ const [reportData, setReportData] = useState<NumericGradeRow[] | null>(null);
 
   
 
-  const handleImportFromMoodle = async () => {
+  const handleEnrollInMoodle = async () => {
     if (!numeroInscripcion) return;
     try {
-      setImporting(true);
+      setEnrolling(true);
       setNotice(null);
-      const r = await participantesApi.importFromMoodle(numeroInscripcion);
+      const r = await participantesApi.enrollInMoodle(numeroInscripcion);
       await load();
-      const msg = r.message || `Importación completa: insertados ${r.inserted}, actualizados ${r.updated}, omitidos ${r.skipped}. Total en la inscripción: ${r.total}`;
-      setNotice(msg);
-    } catch (e:any) {
-      setNotice(e?.message || "Error importando desde Moodle");
+      const msg = r.message || `Inscripción en Moodle finalizada: procesados ${r.processed}, nuevos inscritos ${r.newlyEnrolled}, ya inscritos ${r.alreadyEnrolled}, usuarios creados ${r.createdUsers}, perfiles actualizados ${r.updatedUsers}, omitidos ${r.skipped}, errores ${r.failed}.`;
+      const warningLines = Array.isArray(r.warnings) ? r.warnings.filter(Boolean) : [];
+      const warningText = warningLines.length > 0
+        ? ` Detalle: ${warningLines.slice(0, 3).join(' | ')}${warningLines.length > 3 ? ` (+${warningLines.length - 3} más)` : ''}`
+        : '';
+      setNotice(`${msg}${warningText}`);
+    } catch (e: any) {
+      setNotice(e?.message || 'Error inscribiendo participantes en Moodle');
     } finally {
-      setImporting(false);
+      setEnrolling(false);
     }
   };
 
@@ -286,51 +277,6 @@ const [reportData, setReportData] = useState<NumericGradeRow[] | null>(null);
     }
   };
 
-
-  const openGradesReport = async () => {
-    if (!numeroInscripcion) return;
-    setReportOpen(true);
-    setReportLoading(true);
-    setReportError(null);
-    try {
-      const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(numeroInscripcion)}/grades-numeric`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Error obteniendo reporte');
-      }
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message || 'Error obteniendo reporte');
-      setReportData(Array.isArray(json.data) ? json.data : []);
-      setReportUpdatedAt(json.updatedAt || null);
-    } catch (e:any) {
-      setReportError(e?.message || 'Error obteniendo reporte');
-    } finally {
-      setReportLoading(false);
-    }
-  };
-
-  const reloadGradesReport = async () => {
-    if (!numeroInscripcion) return;
-    setReportReloading(true);
-    setReportError(null);
-    try {
-      const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(numeroInscripcion)}/grades-numeric`;
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Error regenerando reporte');
-      }
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message || 'Error regenerando reporte');
-      setReportData(Array.isArray(json.data) ? json.data : []);
-      setReportUpdatedAt(json.updatedAt || null);
-    } catch (e:any) {
-      setReportError(e?.message || 'Error regenerando reporte');
-    } finally {
-      setReportReloading(false);
-    }
-  };
 const requestSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortDir(prev => (prev === 'asc' ? 'desc' : 'asc'));
@@ -448,15 +394,13 @@ const requestSort = (key: SortKey) => {
                     <Plus className="w-4 h-4" />
                     Nuevo Participante
                   </button>
-                  <button 
-                    onClick={openGradesReport}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                  <button
+                    onClick={handleEnrollInMoodle}
+                    disabled={enrolling}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
                   >
-                    Ver reporte de notas
-                  </button>
-                  <button onClick={handleImportFromMoodle} disabled={importing} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50">
-                    {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Cargar desde Moodle
+                    {enrolling ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Inscribir en Moodle
                   </button>
                   <button 
                     onClick={handleImportFromExcelClick}
@@ -593,80 +537,6 @@ const requestSort = (key: SortKey) => {
         </div>
       )}
 
-
-      {reportOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl p-6 m-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Reporte de notas</h3>
-              <div className="flex items-center gap-3">
-                {reportUpdatedAt && (
-                  <span className="text-xs text-gray-500">Última actualización: {new Date(reportUpdatedAt).toLocaleString()}</span>
-                )}
-                <button onClick={reloadGradesReport} disabled={reportReloading} className="inline-flex items-center px-2 py-1 text-xs border rounded hover:bg-gray-50 disabled:opacity-50">
-                  {reportReloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />}
-                </button>
-                <button onClick={() => { setReportOpen(false); }} className="text-gray-500 hover:text-gray-700 text-xl font-bold">✕</button>
-              </div>
-            </div>
-            {reportLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-                <span className="ml-2 text-gray-600">Generando reporte...</span>
-              </div>
-            ) : reportError ? (
-              <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded">{reportError}</div>
-            ) : reportData ? (
-              <div className="space-y-6">
-                <div className="text-sm text-gray-600">A continuación se muestran los resultados para los participantes de la inscripción {numeroInscripcion}.</div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-right">No.</th>
-                        <th className="px-3 py-2 text-left">Nombres</th>
-                        <th className="px-3 py-2 text-left">Apellidos</th>
-                        <th className="px-3 py-2 text-left">Rut Alumno</th>
-                        <th className="px-3 py-2 text-right">% Avance</th>
-                        <th className="px-3 py-2 text-right">% Asistencia</th>
-                        <th className="px-3 py-2 text-right">Nota Final</th>
-                        <th className="px-3 py-2 text-left">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {(() => {
-                        const rows = Array.isArray(reportData) ? reportData : [];
-                        return rows.map((r, i) => {
-                          const key = `${normalizeRut(r.RutAlumno)}-${i}`;
-                          const nombres = participantesByRut[normalizeRut(r.RutAlumno)]?.nombres || '';
-                          const apellidos = participantesByRut[normalizeRut(r.RutAlumno)]?.apellidos || '';
-                          const estado = r.NotaFinal == null ? '' : (r.NotaFinal >= 5 ? 'Aprobado' : 'Reprobado');
-                          const estadoClass = estado === 'Aprobado' ? 'text-green-600 font-semibold' : (estado === 'Reprobado' ? 'text-red-600 font-semibold' : 'text-gray-600');
-                          return (
-                            <tr key={key}>
-                              <td className="px-3 py-2 text-right">{i + 1}</td>
-                              <td className="px-3 py-2">{nombres}</td>
-                              <td className="px-3 py-2">{apellidos}</td>
-                              <td className="px-3 py-2">{r.RutAlumno}</td>
-                              <td className="px-3 py-2 text-right">{r.PorcentajeAvance != null ? `${r.PorcentajeAvance}%` : '-'}</td>
-                              <td className="px-3 py-2 text-right">{r.PorcentajeAsistenciaAlumno != null ? `${r.PorcentajeAsistenciaAlumno}%` : '-'}</td>
-                              <td className="px-3 py-2 text-right">{r.NotaFinal != null ? r.NotaFinal : '-'}</td>
-                              <td className={`px-3 py-2 ${estadoClass}`}>{estado || '-'}</td>
-                            </tr>
-                          );
-                        });
-                      })()}
-                      {Array.isArray(reportData) && reportData.length === 0 && (
-                        <tr><td colSpan={8} className="px-3 py-6 text-center text-gray-500">No hay datos para mostrar</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      )}
 
     </div>
   );

@@ -17,6 +17,37 @@ const MONTHS = [
 
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase();
 
+const SHARED_EMPRESA_FILTER_KEY = 'sharedEmpresaFilterV1';
+
+type SharedEmpresaFilterState = {
+  search: string;
+  code: number | null;
+};
+
+const readSharedEmpresaFilter = (): SharedEmpresaFilterState => {
+  if (typeof window === 'undefined') return { search: '', code: null };
+  try {
+    const raw = window.localStorage.getItem(SHARED_EMPRESA_FILTER_KEY);
+    if (!raw) return { search: '', code: null };
+    const parsed = JSON.parse(raw) as { search?: unknown; code?: unknown };
+    const search = typeof parsed.search === 'string' ? parsed.search : '';
+    const parsedCode = parsed.code;
+    const numericCode = parsedCode === null || parsedCode === undefined || parsedCode === ''
+      ? NaN
+      : (typeof parsedCode === 'number' ? parsedCode : Number(parsedCode));
+    const code = Number.isFinite(numericCode) ? numericCode : null;
+    return { search, code };
+  } catch {
+    return { search: '', code: null };
+  }
+};
+
+const writeSharedEmpresaFilter = (state: SharedEmpresaFilterState) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SHARED_EMPRESA_FILTER_KEY, JSON.stringify(state));
+  } catch {}
+};
 
 const parseDateOnly = (value?: string): Date | null => {
   if (!value) return null;
@@ -90,6 +121,9 @@ const Dashboard: React.FC = () => {
   const [monthsInitialized, setMonthsInitialized] = useState(false);
   const [modalidadesInitialized, setModalidadesInitialized] = useState(false);
   const [cursosInitialized, setCursosInitialized] = useState(false);
+  const [empresaSearch, setEmpresaSearch] = useState(() => readSharedEmpresaFilter().search);
+  const [selectedEmpresaCode, setSelectedEmpresaCode] = useState<number | null>(() => readSharedEmpresaFilter().code);
+  const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
 
   const loadCache = async (refresh = false) => {
     try {
@@ -150,6 +184,21 @@ const Dashboard: React.FC = () => {
     return rows.filter((ins) => Number(ins.empresa) === target);
   }, [cache, empresaCode]);
 
+  const empresaOptions = useMemo(() => {
+    return Object.entries(empresaByCode)
+      .map(([code, nombre]) => ({ code: Number(code), nombre: String(nombre || '').trim() }))
+      .filter((empresa) => Number.isFinite(empresa.code) && empresa.nombre !== '')
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }, [empresaByCode]);
+
+  const filteredEmpresaOptions = useMemo(() => {
+    const query = normalizeText(empresaSearch);
+    if (!query) return empresaOptions;
+    return empresaOptions.filter((empresa) =>
+      String(empresa.code).includes(query) || normalizeText(empresa.nombre).includes(query)
+    );
+  }, [empresaOptions, empresaSearch]);
+
   const monthOptions = useMemo(() => {
     const set = new Set<string>();
     for (const ins of inscripciones) {
@@ -191,6 +240,19 @@ const Dashboard: React.FC = () => {
     }
   }, [courseOptions, cursosInitialized]);
 
+  useEffect(() => {
+    if (!isAllEmpresasMode) return;
+    writeSharedEmpresaFilter({ search: empresaSearch, code: selectedEmpresaCode });
+  }, [isAllEmpresasMode, empresaSearch, selectedEmpresaCode]);
+
+  useEffect(() => {
+    if (!isAllEmpresasMode) return;
+    if (selectedEmpresaCode === null) return;
+    if (empresaSearch.trim()) return;
+    const empresaNombre = empresaByCode[selectedEmpresaCode];
+    if (empresaNombre) setEmpresaSearch(empresaNombre);
+  }, [isAllEmpresasMode, selectedEmpresaCode, empresaSearch, empresaByCode]);
+
   const filteredInscripciones = useMemo(() => {
     let rows = [...inscripciones];
 
@@ -223,6 +285,35 @@ const Dashboard: React.FC = () => {
 
     return rows;
   }, [inscripciones, selectedMonths, selectedModalidades, selectedCursos, monthOptions, modalidades, courseOptions, estadoCurso]);
+
+  const empresaFilteredInscripciones = useMemo(() => {
+    if (!isAllEmpresasMode) return filteredInscripciones;
+
+    if (selectedEmpresaCode !== null) {
+      return filteredInscripciones.filter((ins) => Number(ins.empresa) === selectedEmpresaCode);
+    }
+
+    const query = normalizeText(empresaSearch);
+    if (!query) return filteredInscripciones;
+
+    return filteredInscripciones.filter((ins) => {
+      const empresaNombre = normalizeText(empresaByCode[Number(ins.empresa)] || '');
+      const empresaCodigo = String(ins.empresa || '');
+      return empresaNombre.includes(query) || empresaCodigo.includes(query);
+    });
+  }, [filteredInscripciones, isAllEmpresasMode, selectedEmpresaCode, empresaSearch, empresaByCode]);
+
+  const handleEmpresaFilterInputChange = (value: string) => {
+    setEmpresaFilterOpen(true);
+    setEmpresaSearch(value);
+    setSelectedEmpresaCode(null);
+  };
+
+  const handleEmpresaFilterPick = (code: number, nombre: string) => {
+    setSelectedEmpresaCode(code);
+    setEmpresaSearch(nombre);
+    setEmpresaFilterOpen(false);
+  };
 
   const toggleMonth = (month: string) => {
     setSelectedMonths((prev) =>
@@ -395,9 +486,45 @@ const Dashboard: React.FC = () => {
             <StatisticsCards items={filteredInscripciones} loading={loading} error={error} />
           </div>
           
+          {isAllEmpresasMode && (
+            <div className="mb-3 w-full max-w-[1150px] mx-auto">
+              <label className="block text-sm font-medium text-gray-700">Empresa</label>
+              <div className="relative mt-1 max-w-md">
+                <input
+                  type="text"
+                  value={empresaSearch}
+                  onChange={(e) => handleEmpresaFilterInputChange(e.target.value)}
+                  onFocus={() => setEmpresaFilterOpen(true)}
+                  onBlur={() => setTimeout(() => setEmpresaFilterOpen(false), 150)}
+                  placeholder="Filtrar por código o nombre de empresa..."
+                  className="w-full border rounded px-3 py-2"
+                  autoComplete="off"
+                />
+                {empresaFilterOpen && filteredEmpresaOptions.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
+                    {filteredEmpresaOptions.map((empresa) => (
+                      <button
+                        type="button"
+                        key={empresa.code}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleEmpresaFilterPick(empresa.code, empresa.nombre)}
+                        className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                      >
+                        {empresa.nombre}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {empresaFilterOpen && filteredEmpresaOptions.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="w-full max-w-[1150px] mx-auto">
             <CourseTable
-              data={filteredInscripciones}
+              data={empresaFilteredInscripciones}
               loading={loading}
               error={error}
               showVimicaButton={showVimicaButton}

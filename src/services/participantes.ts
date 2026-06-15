@@ -29,8 +29,9 @@ export const participantesApi = {
     if (!json.success) throw new Error(json.error?.message || 'API error');
     return json.data || [];
   },
+
   async counts(inscripciones?: number[]): Promise<Record<string, number>> {
-    const url = inscripciones && inscripciones.length > 0 
+    const url = inscripciones && inscripciones.length > 0
       ? `${BASE}/counts?inscripciones=${encodeURIComponent(inscripciones.join(','))}`
       : `${BASE}/counts`;
     const res = await fetch(url);
@@ -39,6 +40,7 @@ export const participantesApi = {
     if (!json.success) throw new Error(json.error?.message || 'API error');
     return json.data || {};
   },
+
   async create(participante: Omit<Participante, '_id'>): Promise<Participante> {
     const res = await fetch(BASE, {
       method: 'POST',
@@ -51,6 +53,7 @@ export const participantesApi = {
     if (!json.data) throw new Error('No data returned');
     return json.data;
   },
+
   async update(id: string, participante: Partial<Participante>): Promise<Participante> {
     const res = await fetch(`${BASE}/${id}`, {
       method: 'PUT',
@@ -63,6 +66,7 @@ export const participantesApi = {
     if (!json.data) throw new Error('No data returned');
     return json.data;
   },
+
   async delete(id: string): Promise<void> {
     const res = await fetch(`${BASE}/${id}`, {
       method: 'DELETE'
@@ -70,8 +74,8 @@ export const participantesApi = {
     if (!res.ok) throw new Error('Error deleting participante');
     const json: ApiResponse<void> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
-  }
- ,
+  },
+
   async importFromMoodle(numeroInscripcion: string): Promise<{ inserted: number; updated: number; skipped: number; total: number; message?: string }> {
     const res = await fetch(`${BASE}/import/moodle`, {
       method: 'POST',
@@ -83,9 +87,45 @@ export const participantesApi = {
       throw new Error(json?.error?.message || 'Error importando desde Moodle');
     }
     return json.data!;
-  }
+  },
 
-  ,
+  async enrollInMoodle(numeroInscripcion: string): Promise<{
+    processed: number;
+    total: number;
+    duplicateRows: number;
+    skipped: number;
+    createdUsers: number;
+    updatedUsers: number;
+    newlyEnrolled: number;
+    alreadyEnrolled: number;
+    failed: number;
+    warnings?: string[];
+    message?: string;
+  }> {
+    const res = await fetch(`${BASE}/enroll/moodle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numeroInscripcion })
+    });
+    const json: ApiResponse<{
+      processed: number;
+      total: number;
+      duplicateRows: number;
+      skipped: number;
+      createdUsers: number;
+      updatedUsers: number;
+      newlyEnrolled: number;
+      alreadyEnrolled: number;
+      failed: number;
+      warnings?: string[];
+      message?: string;
+    }> = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message || 'Error inscribiendo participantes en Moodle');
+    }
+    return json.data!;
+  },
+
   async importBulk(numeroInscripcion: string, participantes: Array<Partial<Participante>>): Promise<{ inserted: number; updated: number; total: number }> {
     const res = await fetch(`${BASE}/import/bulk`, {
       method: 'POST',
@@ -98,7 +138,6 @@ export const participantesApi = {
     }
     return json.data!;
   }
-
 };
 
 export default participantesApi;

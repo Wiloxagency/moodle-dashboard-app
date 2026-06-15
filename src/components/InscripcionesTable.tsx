@@ -36,7 +36,7 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
   const [perPage, setPerPage] = useState(25);
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<SortKey>('numeroInscripcion');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   const requestSort = (key: SortKey) => {
     if (sortKey === key) {

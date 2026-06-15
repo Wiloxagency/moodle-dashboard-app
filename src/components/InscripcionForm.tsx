@@ -12,7 +12,7 @@ import { senceApi, type Sence } from '../services/sence';
 interface Props {
   initial?: Partial<Inscripcion>;
   onCancel: () => void;
-  onSave: (data: Inscripcion) => Promise<void>;
+  onSave: (data: Inscripcion, options?: { goToStudents?: boolean }) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
   empresaByCode?: Record<number, string>;
   empresaByName?: Record<string, number>;
@@ -318,8 +318,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     }
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const saveInscripcion = async (goToStudents: boolean) => {
     setSaving(true);
     try {
       const payload: any = { ...form };
@@ -365,10 +364,19 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         }
       }
 
-      await onSave(payload);
+      await onSave(payload, { goToStudents });
     } finally {
       setSaving(false);
     }
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await saveInscripcion(false);
+  };
+
+  const handleCreateAndAddStudents = async () => {
+    await saveInscripcion(true);
   };
 
   const handleDelete = async () => {
@@ -641,13 +649,24 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
           >
             Cancelar
           </button>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={handleCreateAndAddStudents}
+              disabled={saving || deleting}
+              className="flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving ? 'Guardando...' : 'Crear Insc. y Agregar Estud.'}
+            </button>
+          )}
           <button
             type="submit"
             disabled={saving || deleting}
             className="flex items-center gap-2 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? 'Guardando...' : (isEditing ? 'Actualizar' : 'Crear Inscripción')}
+            {saving ? 'Guardando...' : (isEditing ? 'Actualizar Inscripción' : 'Crear Inscripción')}
           </button>
         </div>
       </div>

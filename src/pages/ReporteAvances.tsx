@@ -47,9 +47,45 @@ const formatDate = (value?: string) => {
   const yyyy = String(d.getFullYear());
   return `${dd}/${mm}/${yyyy}`;
 };
+
+const normalizeText = (value?: string) => (value || '').trim().toLowerCase();
+
+const SHARED_EMPRESA_FILTER_KEY = 'sharedEmpresaFilterV1';
+
+type SharedEmpresaFilterState = {
+  search: string;
+  code: number | null;
+};
+
+const readSharedEmpresaFilter = (): SharedEmpresaFilterState => {
+  if (typeof window === 'undefined') return { search: '', code: null };
+  try {
+    const raw = window.localStorage.getItem(SHARED_EMPRESA_FILTER_KEY);
+    if (!raw) return { search: '', code: null };
+    const parsed = JSON.parse(raw) as { search?: unknown; code?: unknown };
+    const search = typeof parsed.search === 'string' ? parsed.search : '';
+    const parsedCode = parsed.code;
+    const numericCode = parsedCode === null || parsedCode === undefined || parsedCode === ''
+      ? NaN
+      : (typeof parsedCode === 'number' ? parsedCode : Number(parsedCode));
+    const code = Number.isFinite(numericCode) ? numericCode : null;
+    return { search, code };
+  } catch {
+    return { search: '', code: null };
+  }
+};
+
+const writeSharedEmpresaFilter = (state: SharedEmpresaFilterState) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(SHARED_EMPRESA_FILTER_KEY, JSON.stringify(state));
+  } catch {}
+};
+
 const ReporteAvances: React.FC = () => {
   const { user } = useAuth();
   const empresaCode = user?.empresa;
+  const isAllEmpresasMode = user?.role === 'superAdmin' && (empresaCode === undefined || empresaCode === null || !Number.isFinite(Number(empresaCode)));
   const [data, setData] = useState<ReporteAvanceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +97,9 @@ const ReporteAvances: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState(() => formatDateInput(new Date()));
   const [sortKey, setSortKey] = useState('');
+  const [empresaSearch, setEmpresaSearch] = useState(() => readSharedEmpresaFilter().search);
+  const [empresaFilterCode, setEmpresaFilterCode] = useState<number | null>(() => readSharedEmpresaFilter().code);
+  const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -105,6 +144,34 @@ const ReporteAvances: React.FC = () => {
     return map;
   }, [empresas]);
 
+  const empresaOptions = useMemo(() => {
+    return empresas
+      .map((empresa) => ({ code: Number(empresa.code), nombre: String(empresa.nombre || '').trim() }))
+      .filter((empresa) => Number.isFinite(empresa.code) && empresa.nombre !== '')
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  }, [empresas]);
+
+  const filteredEmpresaOptions = useMemo(() => {
+    const query = normalizeText(empresaSearch);
+    if (!query) return empresaOptions;
+    return empresaOptions.filter((empresa) =>
+      String(empresa.code).includes(query) || normalizeText(empresa.nombre).includes(query)
+    );
+  }, [empresaOptions, empresaSearch]);
+
+  useEffect(() => {
+    if (!isAllEmpresasMode) return;
+    writeSharedEmpresaFilter({ search: empresaSearch, code: empresaFilterCode });
+  }, [isAllEmpresasMode, empresaSearch, empresaFilterCode]);
+
+  useEffect(() => {
+    if (!isAllEmpresasMode) return;
+    if (empresaFilterCode === null) return;
+    if (empresaSearch.trim()) return;
+    const empresaNombre = empresaByCode[empresaFilterCode];
+    if (empresaNombre) setEmpresaSearch(empresaNombre);
+  }, [isAllEmpresasMode, empresaFilterCode, empresaSearch, empresaByCode]);
+
   const fromDate = useMemo(() => (dateFrom ? parseDateInput(dateFrom) : null), [dateFrom]);
   const toDate = useMemo(() => (dateTo ? parseDateInput(dateTo) : null), [dateTo]);
 
@@ -116,6 +183,21 @@ const ReporteAvances: React.FC = () => {
 
   const filteredRows = useMemo(() => {
     let rows = [...empresaFiltered];
+
+    if (isAllEmpresasMode) {
+      if (empresaFilterCode !== null) {
+        rows = rows.filter((row) => Number(row.empresa) === empresaFilterCode);
+      } else {
+        const empresaQuery = normalizeText(empresaSearch);
+        if (empresaQuery) {
+          rows = rows.filter((row) => {
+            const code = String(row.empresa || '');
+            const name = normalizeText(empresaByCode[Number(row.empresa)] || String(row.empresa || ''));
+            return code.includes(empresaQuery) || name.includes(empresaQuery);
+          });
+        }
+      }
+    }
 
     if (mode === 'active') {
       rows = rows.filter((row) => {
@@ -183,7 +265,7 @@ const ReporteAvances: React.FC = () => {
     }
 
     return rows;
-  }, [empresaFiltered, mode, fromDate, toDate, sortKey, today]);
+  }, [empresaFiltered, isAllEmpresasMode, empresaFilterCode, empresaSearch, empresaByCode, mode, fromDate, toDate, sortKey, today]);
 
   const showEvaluacionDiagnostica = useMemo(
     () => filteredRows.some((row) => row.notaDiagnostica !== null && row.notaDiagnostica !== undefined),
@@ -206,6 +288,7 @@ const ReporteAvances: React.FC = () => {
       'Email': row.email || '',
       'Fecha de Inicio': formatDate(row.fechaInicio),
       'Fecha Final': formatDate(row.fechaFinal),
+      'Último acceso': formatDate(row.ultimoAcceso),
       'Evaluación Diagnóstica': formatNota(row.notaDiagnostica),
       'Nota final': formatNota(row.notaFinal),
       '% Avance': formatPercent(row.porcentajeAvance),
@@ -234,6 +317,7 @@ const ReporteAvances: React.FC = () => {
         { header: 'Email', key: 'Email', width: 28 },
         { header: 'Fecha de Inicio', key: 'Fecha de Inicio', width: 18 },
         { header: 'Fecha Final', key: 'Fecha Final', width: 18 },
+        { header: 'Último acceso', key: 'Último acceso', width: 18 },
       ];
 
       if (showEvaluacionDiagnostica) {
@@ -286,6 +370,18 @@ const ReporteAvances: React.FC = () => {
     setter(value);
   };
 
+  const handleEmpresaInputChange = (value: string) => {
+    setEmpresaFilterOpen(true);
+    setEmpresaSearch(value);
+    setEmpresaFilterCode(null);
+  };
+
+  const handleEmpresaPick = (code: number, nombre: string) => {
+    setEmpresaFilterCode(code);
+    setEmpresaSearch(nombre);
+    setEmpresaFilterOpen(false);
+  };
+
   return (
     <div className="flex h-[calc(100vh-64px)]">
       <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -330,7 +426,7 @@ const ReporteAvances: React.FC = () => {
                     placeholder="dd/mm/yyyy"
                     value={dateFrom}
                     onChange={(e) => handleDateChange(e.target.value, setDateFrom)}
-                    className="w-[120px] border rounded px-2 py-1 text-sm"
+                    className="w-[120px] h-9 border rounded px-2 text-sm"
                   />
                 </div>
                 <div className="flex items-center gap-1">
@@ -340,14 +436,47 @@ const ReporteAvances: React.FC = () => {
                     placeholder="dd/mm/yyyy"
                     value={dateTo}
                     onChange={(e) => handleDateChange(e.target.value, setDateTo)}
-                    className="w-[120px] border rounded px-2 py-1 text-sm"
+                    className="w-[120px] h-9 border rounded px-2 text-sm"
                   />
                 </div>
+
+                {isAllEmpresasMode && (
+                  <div className="relative min-w-[260px]">
+                    <input
+                      type="text"
+                      value={empresaSearch}
+                      onChange={(e) => handleEmpresaInputChange(e.target.value)}
+                      onFocus={() => setEmpresaFilterOpen(true)}
+                      onBlur={() => setTimeout(() => setEmpresaFilterOpen(false), 150)}
+                      placeholder="Filtrar por empresa..."
+                      className="w-full h-9 border rounded px-2 text-sm"
+                      autoComplete="off"
+                    />
+                    {empresaFilterOpen && filteredEmpresaOptions.length > 0 && (
+                      <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-56 overflow-auto">
+                        {filteredEmpresaOptions.map((empresa) => (
+                          <button
+                            type="button"
+                            key={empresa.code}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleEmpresaPick(empresa.code, empresa.nombre)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                          >
+                            {empresa.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {empresaFilterOpen && filteredEmpresaOptions.length === 0 && (
+                      <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
+                    )}
+                  </div>
+                )}
 
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
-                  className="border rounded px-2 py-2 text-sm"
+                  className="h-9 border rounded px-2 text-sm"
                 >
                   <option value="">Ordenar por...</option>
                   <option value="idSence">ID Sence</option>
@@ -379,7 +508,7 @@ const ReporteAvances: React.FC = () => {
             )}
 
             <div className="overflow-auto max-h-[65vh]">
-              <table className={`w-full ${showEvaluacionDiagnostica ? 'min-w-[1840px]' : 'min-w-[1800px]'}`}>
+              <table className={`w-full ${showEvaluacionDiagnostica ? 'min-w-[1980px]' : 'min-w-[1940px]'}`}>
                 <thead className="text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">Empresa</th>
@@ -391,6 +520,7 @@ const ReporteAvances: React.FC = () => {
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[220px]">Email</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">Fecha de Inicio</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">Fecha Final</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">Último acceso</th>
                     {showEvaluacionDiagnostica && (
                       <th className="px-2 py-3 text-center text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[84px]">
                         <span className="inline-block leading-tight">Eval.<br />Diag.</span>
@@ -406,7 +536,7 @@ const ReporteAvances: React.FC = () => {
                 <tbody className="divide-y divide-gray-200">
                   {!loading && !error && exportRows.length === 0 ? (
                     <tr>
-                      <td colSpan={showEvaluacionDiagnostica ? 15 : 14} className="px-4 py-6 text-center text-gray-500">
+                      <td colSpan={showEvaluacionDiagnostica ? 16 : 15} className="px-4 py-6 text-center text-gray-500">
                         No hay datos disponibles
                       </td>
                     </tr>
@@ -422,6 +552,7 @@ const ReporteAvances: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Email']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Fecha de Inicio']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Fecha Final']}</td>
+                        <td className="px-4 py-3 text-sm text-gray-700">{row['Último acceso']}</td>
                         {showEvaluacionDiagnostica && (
                           <td className="px-2 py-3 text-sm text-gray-700 text-center whitespace-nowrap">{row['Evaluación Diagnóstica']}</td>
                         )}

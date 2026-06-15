@@ -10,6 +10,7 @@ export interface ReporteAvanceRow {
   email: string;
   fechaInicio: string;
   fechaFinal: string;
+  ultimoAcceso: string;
   notaFinal: number | null;
   notaDiagnostica: number | null;
   porcentajeAvance: number | null;
@@ -50,11 +51,13 @@ export interface VimicaHistorialRow {
   _id?: string;
   Id?: number | string;
   Fecha?: string;
-  CantidadRegistros?: number;
-  RegistrosCargados?: number;
-  RegistrosRechazados?: number;
-  RegistrosRechazado?: number;
-  RegistrosLeidos?: number;
+  CantidadRegistros?: number | null;
+  RegistrosCargados?: number | null;
+  RegistrosRechazados?: number | null;
+  RegistrosRechazado?: number | null;
+  RegistrosLeidos?: number | null;
+  apiErrorCode?: number | string | null;
+  apiErrorMessage?: string;
   datosEnviados?: VimicaPayload | Record<string, any>;
 }
 

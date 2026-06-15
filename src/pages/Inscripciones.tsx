@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import InscripcionesTable from '../components/InscripcionesTable';
 import InscripcionForm from '../components/InscripcionForm';
 import { inscripcionesApi, type Inscripcion } from '../services/inscripciones';
@@ -10,6 +11,7 @@ import { useAuth } from '../context/AuthContext';
 
 const Inscripciones: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const empresaCode = user?.empresa;
 
   const [allData, setAllData] = useState<Inscripcion[]>([]);
@@ -140,15 +142,23 @@ const Inscripciones: React.FC = () => {
       .catch((e) => console.warn('Failed to fetch participant counts', e));
   }, [data]);
 
-  const handleSave = async (payload: Inscripcion) => {
+  const handleSave = async (payload: Inscripcion, options?: { goToStudents?: boolean }) => {
     if (editing && editing._id) {
       await inscripcionesApi.update(editing._id, payload);
-    } else {
-      await inscripcionesApi.create(payload);
+      setShowForm(false);
+      setEditing(null);
+      await load();
+      return;
     }
+
+    const created = await inscripcionesApi.create(payload);
     setShowForm(false);
     setEditing(null);
     await load();
+
+    if (options?.goToStudents && created?.numeroInscripcion) {
+      navigate(`/participantes/${encodeURIComponent(String(created.numeroInscripcion))}`);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -194,6 +204,8 @@ const Inscripciones: React.FC = () => {
     setShowForm(true);
   };
 
+  const isEditingMode = Boolean(editing && editing._id);
+
   return (
     <div className="flex h-[calc(100vh-64px)]">
       <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -214,14 +226,14 @@ const Inscripciones: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">{editing ? 'Editar Inscripción' : 'Nueva Inscripción'}</h3>
+              <h3 className="text-lg font-semibold">{isEditingMode ? 'Actualizar Inscripción' : 'Crear Inscripción'}</h3>
               <button onClick={() => { setShowForm(false); setEditing(null); }} className="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             <InscripcionForm 
               initial={editing || undefined} 
               onCancel={() => { setShowForm(false); setEditing(null); }} 
               onSave={handleSave}
-              onDelete={editing && editing._id ? handleDelete : undefined}
+              onDelete={isEditingMode ? handleDelete : undefined}
               empresaByCode={empresaByCode}
             modalidadByCode={modalidadByCode}
             ejecutivoByCode={ejecutivoByCode}

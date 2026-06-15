@@ -101,6 +101,16 @@ const Vimica: React.FC = () => {
     return val ?? 0;
   };
 
+  const getApiErrorCode = (row: VimicaHistorialRow): number | null => {
+    const raw = (row as any)?.apiErrorCode;
+    const num = Number(raw);
+    return Number.isFinite(num) && num > 0 ? num : null;
+  };
+
+  const getMetricCellValue = (row: VimicaHistorialRow, value: number | null | undefined) => {
+    return getApiErrorCode(row) != null ? '' : (value ?? 0);
+  };
+
   const selectedAvanceCursos = useMemo(() => {
     const payload = (selected as any)?.datosEnviados;
     return Array.isArray(payload?.AvanceCursos) ? payload.AvanceCursos : [];
@@ -194,17 +204,29 @@ const Vimica: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-gray-800">{row.Id ?? '-'}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{formatFechaCorta(row.Fecha)}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">{formatHora(row.Fecha)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{row.CantidadRegistros ?? 0}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{row.RegistrosCargados ?? 0}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{getRechazados(row)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-800">{row.RegistrosLeidos ?? 0}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{getMetricCellValue(row, row.CantidadRegistros)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{getMetricCellValue(row, row.RegistrosCargados)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{getMetricCellValue(row, getRechazados(row))}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800">{getMetricCellValue(row, row.RegistrosLeidos)}</td>
                       <td className="px-4 py-3 text-sm text-gray-800">
-                        <button
-                          onClick={() => setSelected(row)}
-                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs"
-                        >
-                          Datos Enviados
-                        </button>
+                        {(() => {
+                          const apiErrorCode = getApiErrorCode(row);
+                          if (apiErrorCode != null) {
+                            return (
+                              <span className="inline-flex px-3 py-1.5 bg-red-600 text-white rounded-md text-xs font-medium cursor-not-allowed select-none">
+                                Error {apiErrorCode}
+                              </span>
+                            );
+                          }
+                          return (
+                            <button
+                              onClick={() => setSelected(row)}
+                              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs"
+                            >
+                              Datos Enviados
+                            </button>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))
