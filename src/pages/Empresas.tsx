@@ -61,6 +61,15 @@ const EmpresasPage: React.FC = () => {
   const initial: EmpresaFormData | undefined =
     editingCode == null ? undefined : (data.find(item => item.code === editingCode) as EmpresaFormData);
 
+  const holdings = Array.from(
+    new Map(
+      data
+        .map(item => (item.holding || '').trim())
+        .filter(Boolean)
+        .map(h => [h.toLowerCase(), h] as const)
+    ).values()
+  );
+
   return (
     <div className="flex h-[calc(100vh-64px)]">
       <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -87,6 +96,7 @@ const EmpresasPage: React.FC = () => {
             </div>
             <EmpresaForm
               initial={initial}
+              holdings={holdings}
               onClose={() => { setShowForm(false); setEditingCode(null); }}
               onSave={handleSave}
             />
