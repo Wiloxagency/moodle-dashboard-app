@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { empresasApi, type Empresa } from '../services/empresas';
 import { loginUser, type StoredUser } from '../services/users';
+import { getUniqueHoldings, HOLDING_OPTION_PREFIX } from '../utils/holding';
 import logo from '../assets/logo.png';
 
 interface LocationState {
@@ -29,6 +30,8 @@ const LoginPage: React.FC = () => {
   const isSuperAdminStep = !!pendingUser;
   const ALL_EMPRESAS_VALUE = 'ALL';
 
+  const holdingOptions = getUniqueHoldings(empresas);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoginError(null);
@@ -40,11 +43,22 @@ const LoginPage: React.FC = () => {
       }
       setSubmitting(true);
       try {
-        const selectedEmpresaCode = selectedEmpresa === ALL_EMPRESAS_VALUE ? undefined : Number(selectedEmpresa);
+        let empresaCode: number | undefined;
+        let holding: string | undefined;
+        if (selectedEmpresa === ALL_EMPRESAS_VALUE) {
+          // Modo Multi Empresa
+        } else if (selectedEmpresa.startsWith(HOLDING_OPTION_PREFIX)) {
+          // Modo Holding
+          holding = selectedEmpresa.slice(HOLDING_OPTION_PREFIX.length);
+        } else {
+          // Modo Empresa
+          empresaCode = Number(selectedEmpresa);
+        }
         const nextUser = {
           username: pendingUser.username,
           role: pendingUser.role,
-          empresa: selectedEmpresaCode,
+          empresa: empresaCode,
+          holding,
         };
         setSessionUser(nextUser);
         const redirectTo = state?.from?.pathname && state.from.pathname !== '/' ? state.from.pathname : '/dashboard';
@@ -191,6 +205,15 @@ const LoginPage: React.FC = () => {
                     {empresa.nombre}
                   </option>
                 ))}
+                {holdingOptions.length > 0 && (
+                  <optgroup label="Holdings">
+                    {holdingOptions.map((holding) => (
+                      <option key={`${HOLDING_OPTION_PREFIX}${holding}`} value={`${HOLDING_OPTION_PREFIX}${holding}`}>
+                        {holding}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
               {loadingEmpresas && (
                 <p className="mt-1 text-xs text-gray-500">Cargando empresas...</p>

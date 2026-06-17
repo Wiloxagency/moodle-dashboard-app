@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { reportesApi, type ReporteAvanceRow } from '../services/reportes';
 import { empresasApi, type Empresa } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
+import { getSessionMode, getHoldingEmpresaCodes, getUniqueHoldings } from '../utils/holding';
 
 
 const formatDateInput = (date: Date) => {
@@ -55,23 +56,25 @@ const SHARED_EMPRESA_FILTER_KEY = 'sharedEmpresaFilterV1';
 type SharedEmpresaFilterState = {
   search: string;
   code: number | null;
+  holding: string | null;
 };
 
 const readSharedEmpresaFilter = (): SharedEmpresaFilterState => {
-  if (typeof window === 'undefined') return { search: '', code: null };
+  if (typeof window === 'undefined') return { search: '', code: null, holding: null };
   try {
     const raw = window.localStorage.getItem(SHARED_EMPRESA_FILTER_KEY);
-    if (!raw) return { search: '', code: null };
-    const parsed = JSON.parse(raw) as { search?: unknown; code?: unknown };
+    if (!raw) return { search: '', code: null, holding: null };
+    const parsed = JSON.parse(raw) as { search?: unknown; code?: unknown; holding?: unknown };
     const search = typeof parsed.search === 'string' ? parsed.search : '';
     const parsedCode = parsed.code;
     const numericCode = parsedCode === null || parsedCode === undefined || parsedCode === ''
       ? NaN
       : (typeof parsedCode === 'number' ? parsedCode : Number(parsedCode));
     const code = Number.isFinite(numericCode) ? numericCode : null;
-    return { search, code };
+    const holding = typeof parsed.holding === 'string' && parsed.holding.trim() !== '' ? parsed.holding : null;
+    return { search, code, holding };
   } catch {
-    return { search: '', code: null };
+    return { search: '', code: null, holding: null };
   }
 };
 
@@ -85,7 +88,9 @@ const writeSharedEmpresaFilter = (state: SharedEmpresaFilterState) => {
 const ReporteAvances: React.FC = () => {
   const { user } = useAuth();
   const empresaCode = user?.empresa;
-  const isAllEmpresasMode = user?.role === 'superAdmin' && (empresaCode === undefined || empresaCode === null || !Number.isFinite(Number(empresaCode)));
+  const sessionMode = getSessionMode(user);
+  const isHoldingMode = sessionMode === 'holding';
+  const isAllEmpresasMode = user?.role === 'superAdmin' && sessionMode === 'multi';
   const [data, setData] = useState<ReporteAvanceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,9 +102,17 @@ const ReporteAvances: React.FC = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState(() => formatDateInput(new Date()));
   const [sortKey, setSortKey] = useState('');
-  const [empresaSearch, setEmpresaSearch] = useState(() => readSharedEmpresaFilter().search);
-  const [empresaFilterCode, setEmpresaFilterCode] = useState<number | null>(() => readSharedEmpresaFilter().code);
+  const [empresaSearch, setEmpresaSearch] = useState(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().search : ''));
+  const [empresaFilterCode, setEmpresaFilterCode] = useState<number | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().code : null));
+  const [holdingFilter, setHoldingFilter] = useState<string | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().holding : null));
   const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
+
+  const showEmpresaFilter = isAllEmpresasMode || isHoldingMode;
+
+  const holdingCodeSet = useMemo(
+    () => (isHoldingMode ? new Set(getHoldingEmpresaCodes(empresas, user?.holding).map(Number)) : null),
+    [isHoldingMode, empresas, user?.holding]
+  );
 
   const load = async () => {
     try {
@@ -148,8 +161,9 @@ const ReporteAvances: React.FC = () => {
     return empresas
       .map((empresa) => ({ code: Number(empresa.code), nombre: String(empresa.nombre || '').trim() }))
       .filter((empresa) => Number.isFinite(empresa.code) && empresa.nombre !== '')
+      .filter((empresa) => !isHoldingMode || !holdingCodeSet || holdingCodeSet.has(empresa.code))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
-  }, [empresas]);
+  }, [empresas, isHoldingMode, holdingCodeSet]);
 
   const filteredEmpresaOptions = useMemo(() => {
     const query = normalizeText(empresaSearch);
@@ -159,34 +173,59 @@ const ReporteAvances: React.FC = () => {
     );
   }, [empresaOptions, empresaSearch]);
 
-  useEffect(() => {
-    if (!isAllEmpresasMode) return;
-    writeSharedEmpresaFilter({ search: empresaSearch, code: empresaFilterCode });
-  }, [isAllEmpresasMode, empresaSearch, empresaFilterCode]);
+  const holdingOptions = useMemo(
+    () => (isAllEmpresasMode ? getUniqueHoldings(empresas) : []),
+    [isAllEmpresasMode, empresas]
+  );
+
+  const filteredHoldingOptions = useMemo(() => {
+    const query = normalizeText(empresaSearch);
+    if (!query) return holdingOptions;
+    return holdingOptions.filter((holding) => normalizeText(holding).includes(query));
+  }, [holdingOptions, empresaSearch]);
+
+  const activeHoldingCodes = useMemo(
+    () => (holdingFilter ? new Set(getHoldingEmpresaCodes(empresas, holdingFilter).map(Number)) : null),
+    [holdingFilter, empresas]
+  );
 
   useEffect(() => {
     if (!isAllEmpresasMode) return;
-    if (empresaFilterCode === null) return;
+    writeSharedEmpresaFilter({ search: empresaSearch, code: empresaFilterCode, holding: holdingFilter });
+  }, [isAllEmpresasMode, empresaSearch, empresaFilterCode, holdingFilter]);
+
+  useEffect(() => {
+    if (!isAllEmpresasMode) return;
     if (empresaSearch.trim()) return;
-    const empresaNombre = empresaByCode[empresaFilterCode];
-    if (empresaNombre) setEmpresaSearch(empresaNombre);
-  }, [isAllEmpresasMode, empresaFilterCode, empresaSearch, empresaByCode]);
+    if (empresaFilterCode !== null) {
+      const empresaNombre = empresaByCode[empresaFilterCode];
+      if (empresaNombre) setEmpresaSearch(empresaNombre);
+    } else if (holdingFilter) {
+      setEmpresaSearch(holdingFilter);
+    }
+  }, [isAllEmpresasMode, empresaFilterCode, holdingFilter, empresaSearch, empresaByCode]);
 
   const fromDate = useMemo(() => (dateFrom ? parseDateInput(dateFrom) : null), [dateFrom]);
   const toDate = useMemo(() => (dateTo ? parseDateInput(dateTo) : null), [dateTo]);
 
   const empresaFiltered = useMemo(() => {
+    if (sessionMode === 'holding') {
+      if (!holdingCodeSet || holdingCodeSet.size === 0) return [];
+      return data.filter((row) => holdingCodeSet.has(Number(row.empresa)));
+    }
     if (empresaCode === undefined || empresaCode === null) return data;
     const target = String(empresaCode);
     return data.filter((row) => String(row.empresa ?? '') === target);
-  }, [data, empresaCode]);
+  }, [data, sessionMode, empresaCode, holdingCodeSet]);
 
   const filteredRows = useMemo(() => {
     let rows = [...empresaFiltered];
 
-    if (isAllEmpresasMode) {
+    if (showEmpresaFilter) {
       if (empresaFilterCode !== null) {
         rows = rows.filter((row) => Number(row.empresa) === empresaFilterCode);
+      } else if (holdingFilter && activeHoldingCodes) {
+        rows = rows.filter((row) => activeHoldingCodes.has(Number(row.empresa)));
       } else {
         const empresaQuery = normalizeText(empresaSearch);
         if (empresaQuery) {
@@ -265,7 +304,7 @@ const ReporteAvances: React.FC = () => {
     }
 
     return rows;
-  }, [empresaFiltered, isAllEmpresasMode, empresaFilterCode, empresaSearch, empresaByCode, mode, fromDate, toDate, sortKey, today]);
+  }, [empresaFiltered, showEmpresaFilter, empresaFilterCode, holdingFilter, activeHoldingCodes, empresaSearch, empresaByCode, mode, fromDate, toDate, sortKey, today]);
 
   const showEvaluacionDiagnostica = useMemo(
     () => filteredRows.some((row) => row.notaDiagnostica !== null && row.notaDiagnostica !== undefined),
@@ -355,7 +394,20 @@ const ReporteAvances: React.FC = () => {
       const a = document.createElement('a');
       a.href = url;
       const todayFile = new Date();
-      const suffix = empresaCode === undefined || empresaCode === null ? 'general' : `empresa-${empresaCode}`;
+      const slug = (value: string) =>
+        value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sin-nombre';
+      let suffix: string;
+      if (isHoldingMode) {
+        suffix = `holding-${slug(user?.holding || '')}`;
+      } else if (holdingFilter) {
+        suffix = `holding-${slug(holdingFilter)}`;
+      } else if (empresaFilterCode != null) {
+        suffix = `empresa-${empresaFilterCode}`;
+      } else if (empresaCode != null) {
+        suffix = `empresa-${empresaCode}`;
+      } else {
+        suffix = 'general';
+      }
       a.download = `reporte-avance-${suffix}-${todayFile.toISOString().slice(0, 10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
@@ -374,11 +426,20 @@ const ReporteAvances: React.FC = () => {
     setEmpresaFilterOpen(true);
     setEmpresaSearch(value);
     setEmpresaFilterCode(null);
+    setHoldingFilter(null);
   };
 
   const handleEmpresaPick = (code: number, nombre: string) => {
     setEmpresaFilterCode(code);
+    setHoldingFilter(null);
     setEmpresaSearch(nombre);
+    setEmpresaFilterOpen(false);
+  };
+
+  const handleHoldingPick = (holding: string) => {
+    setHoldingFilter(holding);
+    setEmpresaFilterCode(null);
+    setEmpresaSearch(holding);
     setEmpresaFilterOpen(false);
   };
 
@@ -440,7 +501,7 @@ const ReporteAvances: React.FC = () => {
                   />
                 </div>
 
-                {isAllEmpresasMode && (
+                {showEmpresaFilter && (
                   <div className="relative min-w-[260px]">
                     <input
                       type="text"
@@ -448,11 +509,11 @@ const ReporteAvances: React.FC = () => {
                       onChange={(e) => handleEmpresaInputChange(e.target.value)}
                       onFocus={() => setEmpresaFilterOpen(true)}
                       onBlur={() => setTimeout(() => setEmpresaFilterOpen(false), 150)}
-                      placeholder="Filtrar por empresa..."
+                      placeholder={isHoldingMode ? 'Filtrar por empresa del holding...' : 'Filtrar por empresa...'}
                       className="w-full h-9 border rounded px-2 text-sm"
                       autoComplete="off"
                     />
-                    {empresaFilterOpen && filteredEmpresaOptions.length > 0 && (
+                    {empresaFilterOpen && (filteredEmpresaOptions.length > 0 || filteredHoldingOptions.length > 0) && (
                       <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-56 overflow-auto">
                         {filteredEmpresaOptions.map((empresa) => (
                           <button
@@ -465,9 +526,27 @@ const ReporteAvances: React.FC = () => {
                             {empresa.nombre}
                           </button>
                         ))}
+                        {filteredHoldingOptions.length > 0 && (
+                          <>
+                            <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-gray-50 border-t border-gray-200">
+                              Holdings
+                            </div>
+                            {filteredHoldingOptions.map((holding) => (
+                              <button
+                                type="button"
+                                key={`holding-${holding}`}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => handleHoldingPick(holding)}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                              >
+                                {holding}
+                              </button>
+                            ))}
+                          </>
+                        )}
                       </div>
                     )}
-                    {empresaFilterOpen && filteredEmpresaOptions.length === 0 && (
+                    {empresaFilterOpen && filteredEmpresaOptions.length === 0 && filteredHoldingOptions.length === 0 && (
                       <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
                     )}
                   </div>

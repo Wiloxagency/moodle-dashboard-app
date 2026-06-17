@@ -7,8 +7,9 @@ import { dashboardApi, type DashboardCache, type DashboardInscripcion } from '..
 import { inscripcionesApi } from '../services/inscripciones';
 import config from '../config/environment';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
-import { empresasApi } from '../services/empresas';
+import { empresasApi, type Empresa } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
+import { getSessionMode, getHoldingEmpresaCodes, getUniqueHoldings } from '../utils/holding';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -22,23 +23,25 @@ const SHARED_EMPRESA_FILTER_KEY = 'sharedEmpresaFilterV1';
 type SharedEmpresaFilterState = {
   search: string;
   code: number | null;
+  holding: string | null;
 };
 
 const readSharedEmpresaFilter = (): SharedEmpresaFilterState => {
-  if (typeof window === 'undefined') return { search: '', code: null };
+  if (typeof window === 'undefined') return { search: '', code: null, holding: null };
   try {
     const raw = window.localStorage.getItem(SHARED_EMPRESA_FILTER_KEY);
-    if (!raw) return { search: '', code: null };
-    const parsed = JSON.parse(raw) as { search?: unknown; code?: unknown };
+    if (!raw) return { search: '', code: null, holding: null };
+    const parsed = JSON.parse(raw) as { search?: unknown; code?: unknown; holding?: unknown };
     const search = typeof parsed.search === 'string' ? parsed.search : '';
     const parsedCode = parsed.code;
     const numericCode = parsedCode === null || parsedCode === undefined || parsedCode === ''
       ? NaN
       : (typeof parsedCode === 'number' ? parsedCode : Number(parsedCode));
     const code = Number.isFinite(numericCode) ? numericCode : null;
-    return { search, code };
+    const holding = typeof parsed.holding === 'string' && parsed.holding.trim() !== '' ? parsed.holding : null;
+    return { search, code, holding };
   } catch {
-    return { search: '', code: null };
+    return { search: '', code: null, holding: null };
   }
 };
 
@@ -102,7 +105,7 @@ const Dashboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modalidades, setModalidades] = useState<string[]>([]);
-  const [empresaByCode, setEmpresaByCode] = useState<Record<number, string>>({});
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
 
   const [reportUpdating, setReportUpdating] = useState(false);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
@@ -111,8 +114,10 @@ const Dashboard: React.FC = () => {
 
   const { user } = useAuth();
   const empresaCode = user?.empresa;
+  const sessionMode = getSessionMode(user);
+  const isHoldingMode = sessionMode === 'holding';
   const showVimicaButton = Number(empresaCode) === 1;
-  const isAllEmpresasMode = user?.role === 'superAdmin' && (empresaCode === undefined || empresaCode === null || !Number.isFinite(Number(empresaCode)));
+  const isAllEmpresasMode = user?.role === 'superAdmin' && sessionMode === 'multi';
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
   const [selectedModalidades, setSelectedModalidades] = useState<string[]>([]);
@@ -121,8 +126,9 @@ const Dashboard: React.FC = () => {
   const [monthsInitialized, setMonthsInitialized] = useState(false);
   const [modalidadesInitialized, setModalidadesInitialized] = useState(false);
   const [cursosInitialized, setCursosInitialized] = useState(false);
-  const [empresaSearch, setEmpresaSearch] = useState(() => readSharedEmpresaFilter().search);
-  const [selectedEmpresaCode, setSelectedEmpresaCode] = useState<number | null>(() => readSharedEmpresaFilter().code);
+  const [empresaSearch, setEmpresaSearch] = useState(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().search : ''));
+  const [selectedEmpresaCode, setSelectedEmpresaCode] = useState<number | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().code : null));
+  const [holdingFilter, setHoldingFilter] = useState<string | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().holding : null));
   const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
 
   const loadCache = async (refresh = false) => {
@@ -161,14 +167,10 @@ const Dashboard: React.FC = () => {
       .list()
       .then((items) => {
         if (!mounted) return;
-        const map: Record<number, string> = {};
-        items.forEach((empresa) => {
-          map[empresa.code] = (empresa.nombre || '').trim();
-        });
-        setEmpresaByCode(map);
+        setEmpresas(items);
       })
       .catch(() => {
-        if (mounted) setEmpresaByCode({});
+        if (mounted) setEmpresas([]);
       });
 
     return () => {
@@ -176,13 +178,30 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
+  const empresaByCode = useMemo(() => {
+    const map: Record<number, string> = {};
+    empresas.forEach((empresa) => {
+      map[empresa.code] = (empresa.nombre || '').trim();
+    });
+    return map;
+  }, [empresas]);
+
+  const holdingCodeSet = useMemo(
+    () => (isHoldingMode ? new Set(getHoldingEmpresaCodes(empresas, user?.holding).map(Number)) : null),
+    [isHoldingMode, empresas, user?.holding]
+  );
+
   const inscripciones: DashboardInscripcion[] = useMemo(() => {
     const rows = cache?.inscripciones || [];
+    if (sessionMode === 'holding') {
+      if (!holdingCodeSet || holdingCodeSet.size === 0) return [];
+      return rows.filter((ins) => holdingCodeSet.has(Number(ins.empresa)));
+    }
     if (empresaCode === undefined || empresaCode === null) return rows;
     const target = Number(empresaCode);
     if (!Number.isFinite(target)) return rows;
     return rows.filter((ins) => Number(ins.empresa) === target);
-  }, [cache, empresaCode]);
+  }, [cache, sessionMode, empresaCode, holdingCodeSet]);
 
   const empresaOptions = useMemo(() => {
     return Object.entries(empresaByCode)
@@ -198,6 +217,22 @@ const Dashboard: React.FC = () => {
       String(empresa.code).includes(query) || normalizeText(empresa.nombre).includes(query)
     );
   }, [empresaOptions, empresaSearch]);
+
+  const holdingOptions = useMemo(
+    () => (isAllEmpresasMode ? getUniqueHoldings(empresas) : []),
+    [isAllEmpresasMode, empresas]
+  );
+
+  const filteredHoldingOptions = useMemo(() => {
+    const query = normalizeText(empresaSearch);
+    if (!query) return holdingOptions;
+    return holdingOptions.filter((holding) => normalizeText(holding).includes(query));
+  }, [holdingOptions, empresaSearch]);
+
+  const activeHoldingCodes = useMemo(
+    () => (holdingFilter ? new Set(getHoldingEmpresaCodes(empresas, holdingFilter).map(Number)) : null),
+    [holdingFilter, empresas]
+  );
 
   const monthOptions = useMemo(() => {
     const set = new Set<string>();
@@ -242,16 +277,19 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (!isAllEmpresasMode) return;
-    writeSharedEmpresaFilter({ search: empresaSearch, code: selectedEmpresaCode });
-  }, [isAllEmpresasMode, empresaSearch, selectedEmpresaCode]);
+    writeSharedEmpresaFilter({ search: empresaSearch, code: selectedEmpresaCode, holding: holdingFilter });
+  }, [isAllEmpresasMode, empresaSearch, selectedEmpresaCode, holdingFilter]);
 
   useEffect(() => {
     if (!isAllEmpresasMode) return;
-    if (selectedEmpresaCode === null) return;
     if (empresaSearch.trim()) return;
-    const empresaNombre = empresaByCode[selectedEmpresaCode];
-    if (empresaNombre) setEmpresaSearch(empresaNombre);
-  }, [isAllEmpresasMode, selectedEmpresaCode, empresaSearch, empresaByCode]);
+    if (selectedEmpresaCode !== null) {
+      const empresaNombre = empresaByCode[selectedEmpresaCode];
+      if (empresaNombre) setEmpresaSearch(empresaNombre);
+    } else if (holdingFilter) {
+      setEmpresaSearch(holdingFilter);
+    }
+  }, [isAllEmpresasMode, selectedEmpresaCode, holdingFilter, empresaSearch, empresaByCode]);
 
   const filteredInscripciones = useMemo(() => {
     let rows = [...inscripciones];
@@ -293,6 +331,10 @@ const Dashboard: React.FC = () => {
       return filteredInscripciones.filter((ins) => Number(ins.empresa) === selectedEmpresaCode);
     }
 
+    if (holdingFilter && activeHoldingCodes) {
+      return filteredInscripciones.filter((ins) => activeHoldingCodes.has(Number(ins.empresa)));
+    }
+
     const query = normalizeText(empresaSearch);
     if (!query) return filteredInscripciones;
 
@@ -301,17 +343,26 @@ const Dashboard: React.FC = () => {
       const empresaCodigo = String(ins.empresa || '');
       return empresaNombre.includes(query) || empresaCodigo.includes(query);
     });
-  }, [filteredInscripciones, isAllEmpresasMode, selectedEmpresaCode, empresaSearch, empresaByCode]);
+  }, [filteredInscripciones, isAllEmpresasMode, selectedEmpresaCode, holdingFilter, activeHoldingCodes, empresaSearch, empresaByCode]);
 
   const handleEmpresaFilterInputChange = (value: string) => {
     setEmpresaFilterOpen(true);
     setEmpresaSearch(value);
     setSelectedEmpresaCode(null);
+    setHoldingFilter(null);
   };
 
   const handleEmpresaFilterPick = (code: number, nombre: string) => {
     setSelectedEmpresaCode(code);
+    setHoldingFilter(null);
     setEmpresaSearch(nombre);
+    setEmpresaFilterOpen(false);
+  };
+
+  const handleHoldingFilterPick = (holding: string) => {
+    setHoldingFilter(holding);
+    setSelectedEmpresaCode(null);
+    setEmpresaSearch(holding);
     setEmpresaFilterOpen(false);
   };
 
@@ -370,11 +421,17 @@ const Dashboard: React.FC = () => {
       const targetEmpresa = empresaCode == null ? null : Number(empresaCode);
       const filtered = scope === 'todo'
         ? allIns
-        : (targetEmpresa == null || !Number.isFinite(targetEmpresa)
-            ? allIns
-            : allIns.filter((ins) => Number(ins.empresa) === targetEmpresa));
+        : (sessionMode === 'holding'
+            ? (holdingCodeSet && holdingCodeSet.size
+                ? allIns.filter((ins) => holdingCodeSet.has(Number(ins.empresa)))
+                : [])
+            : (targetEmpresa == null || !Number.isFinite(targetEmpresa)
+                ? allIns
+                : allIns.filter((ins) => Number(ins.empresa) === targetEmpresa)));
 
-      const scopeLabel = scope === 'todo' ? 'todas las empresas' : 'la empresa activa';
+      const scopeLabel = scope === 'todo'
+        ? 'todas las empresas'
+        : (sessionMode === 'holding' ? 'el holding activo' : 'la empresa activa');
       const openIns = filtered.filter((ins) => !isClosedStatus(ins.status));
       const total = openIns.length;
       if (!total) {
@@ -500,7 +557,7 @@ const Dashboard: React.FC = () => {
                   className="w-full border rounded px-3 py-2"
                   autoComplete="off"
                 />
-                {empresaFilterOpen && filteredEmpresaOptions.length > 0 && (
+                {empresaFilterOpen && (filteredEmpresaOptions.length > 0 || filteredHoldingOptions.length > 0) && (
                   <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded shadow max-h-48 overflow-auto">
                     {filteredEmpresaOptions.map((empresa) => (
                       <button
@@ -513,9 +570,27 @@ const Dashboard: React.FC = () => {
                         {empresa.nombre}
                       </button>
                     ))}
+                    {filteredHoldingOptions.length > 0 && (
+                      <>
+                        <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 bg-gray-50 border-t border-gray-200">
+                          Holdings
+                        </div>
+                        {filteredHoldingOptions.map((holding) => (
+                          <button
+                            type="button"
+                            key={`holding-${holding}`}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleHoldingFilterPick(holding)}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm"
+                          >
+                            {holding}
+                          </button>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
-                {empresaFilterOpen && filteredEmpresaOptions.length === 0 && (
+                {empresaFilterOpen && filteredEmpresaOptions.length === 0 && filteredHoldingOptions.length === 0 && (
                   <p className="mt-1 text-xs text-gray-500">Sin resultados para la búsqueda actual.</p>
                 )}
               </div>
@@ -528,7 +603,7 @@ const Dashboard: React.FC = () => {
               loading={loading}
               error={error}
               showVimicaButton={showVimicaButton}
-              showEmpresaColumn={isAllEmpresasMode}
+              showEmpresaColumn={isAllEmpresasMode || isHoldingMode}
               empresaByCode={empresaByCode}
             />
           </div>

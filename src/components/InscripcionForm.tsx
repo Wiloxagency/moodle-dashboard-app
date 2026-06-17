@@ -17,6 +17,8 @@ interface Props {
   empresaByCode?: Record<number, string>;
   empresaByName?: Record<string, number>;
   defaultEmpresaCode?: number;
+  /** Si se entrega (modo holding), limita las empresas seleccionables a estos códigos. */
+  allowedEmpresaCodes?: number[];
   modalidadByCode?: Record<number, string>;
   ejecutivoByCode?: Record<number, string>;
 }
@@ -43,7 +45,7 @@ const empty: Inscripcion = {
   comentarios: undefined,
 };
 
-const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, empresaByCode, empresaByName, defaultEmpresaCode }) => {
+const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, empresaByCode, empresaByName, defaultEmpresaCode, allowedEmpresaCodes }) => {
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -63,12 +65,18 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
   const isEditing = Boolean(initial && (initial as any)._id);
   const isAllEmpresasMode = defaultEmpresaCode === undefined || defaultEmpresaCode === null;
 
+  const allowedEmpresaSet = useMemo(
+    () => (allowedEmpresaCodes && allowedEmpresaCodes.length ? new Set(allowedEmpresaCodes.map(Number)) : null),
+    [allowedEmpresaCodes]
+  );
+
   const empresaOptions = useMemo(() => {
     return Object.entries(empresaByCode || {})
       .map(([code, nombre]) => ({ code: Number(code), nombre: String(nombre || '').trim() }))
       .filter((item) => Number.isFinite(item.code) && item.nombre !== '')
+      .filter((item) => !allowedEmpresaSet || allowedEmpresaSet.has(item.code))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
-  }, [empresaByCode]);
+  }, [empresaByCode, allowedEmpresaSet]);
 
   const normalizeEmpresaCode = (value: any): number | undefined => {
     if (value === undefined || value === null || value === '') return undefined;
@@ -342,6 +350,11 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         payload.empresa = defaultEmpresaCode;
       } else {
         window.alert('Seleccione una empresa');
+        return;
+      }
+      // En modo holding, solo se permiten empresas del holding activo
+      if (allowedEmpresaSet && !allowedEmpresaSet.has(Number(payload.empresa))) {
+        window.alert('Seleccione una empresa del holding activo');
         return;
       }
       // Normalizar modalidad/ejecutivo a códigos si vienen como texto

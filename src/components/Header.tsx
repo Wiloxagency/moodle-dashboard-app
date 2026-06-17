@@ -4,6 +4,7 @@ import { LogOut, User, Home, Users, Building2, Waypoints, UserCircle2, Sheet } f
 import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 import { empresasApi } from '../services/empresas';
+import { getSessionMode } from '../utils/holding';
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -20,6 +21,7 @@ const Header: React.FC = () => {
   };
 
   const isSuperAdmin = user?.role === 'superAdmin';
+  const sessionMode = getSessionMode(user);
   const [activeEmpresaName, setActiveEmpresaName] = useState('');
 
   useEffect(() => {
@@ -44,11 +46,16 @@ const Header: React.FC = () => {
     };
   }, [user?.empresa]);
 
+  const activeScopeName = useMemo(() => {
+    if (sessionMode === 'holding') return (user?.holding || '').trim();
+    return activeEmpresaName.trim();
+  }, [sessionMode, user?.holding, activeEmpresaName]);
+
   const activeEmpresaDisplay = useMemo(() => {
-    const name = activeEmpresaName.trim();
+    const name = activeScopeName;
     if (!name) return '';
     return name.length > 12 ? `${name.slice(0, 10)}...` : name;
-  }, [activeEmpresaName]);
+  }, [activeScopeName]);
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">

@@ -8,11 +8,13 @@ import { empresasApi, type Empresa } from '../services/empresas';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
 import { useAuth } from '../context/AuthContext';
+import { getSessionMode, getHoldingEmpresaCodes } from '../utils/holding';
 
 const Inscripciones: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const empresaCode = user?.empresa;
+  const sessionMode = getSessionMode(user);
 
   const [allData, setAllData] = useState<Inscripcion[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -74,6 +76,13 @@ const Inscripciones: React.FC = () => {
     return Number.isFinite(normalized) ? normalized : undefined;
   }, [empresaCode]);
 
+  const holdingEmpresaCodes = useMemo(
+    () => (sessionMode === 'holding' ? getHoldingEmpresaCodes(empresas, user?.holding) : []),
+    [sessionMode, empresas, user?.holding]
+  );
+
+  const holdingCodeSet = useMemo(() => new Set(holdingEmpresaCodes.map(Number)), [holdingEmpresaCodes]);
+
   const normalizeEmpresaCode = (value: any): number | undefined => {
     if (value === undefined || value === null || value === '') return undefined;
     if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -88,11 +97,18 @@ const Inscripciones: React.FC = () => {
 
   const data = useMemo(() => {
     const rows = [...allData];
+    if (sessionMode === 'holding') {
+      if (!holdingCodeSet.size) return [];
+      return rows.filter((item) => {
+        const code = normalizeEmpresaCode(item.empresa);
+        return code !== undefined && holdingCodeSet.has(code);
+      });
+    }
     if (empresaCode === undefined || empresaCode === null) return rows;
     const target = Number(empresaCode);
     if (!Number.isFinite(target)) return rows;
     return rows.filter((item) => normalizeEmpresaCode(item.empresa) === target);
-  }, [allData, empresaCode, empresaByName]);
+  }, [allData, sessionMode, empresaCode, empresaByName, holdingCodeSet]);
 
   const load = async () => {
     const items = await inscripcionesApi.list();
@@ -239,6 +255,7 @@ const Inscripciones: React.FC = () => {
             ejecutivoByCode={ejecutivoByCode}
               empresaByName={empresaByName}
               defaultEmpresaCode={defaultEmpresaCode}
+              allowedEmpresaCodes={sessionMode === 'holding' ? holdingEmpresaCodes : undefined}
             />
           </div>
         </div>
