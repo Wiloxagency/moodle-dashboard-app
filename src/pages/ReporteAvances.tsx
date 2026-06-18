@@ -142,8 +142,18 @@ const ReporteAvances: React.FC = () => {
     loadEmpresas();
   }, []);
 
-  const formatPercent = (value?: number | null) => (value === null || value === undefined ? '' : `${value}%`);
-  const formatNota = (value?: number | null) => (value === null || value === undefined ? '' : String(value));
+  // Regla de visualización según "Último acceso":
+  // - Sin fecha de último acceso => se muestra "-"
+  // - Con fecha de último acceso => si no hay dato se muestra 0 / 0% (nunca vacío)
+  const hasUltimoAcceso = (ultimoAcceso?: string) => formatDate(ultimoAcceso) !== '';
+  const formatNotaConAcceso = (value: number | null | undefined, ultimoAcceso?: string) => {
+    if (!hasUltimoAcceso(ultimoAcceso)) return '-';
+    return value === null || value === undefined ? '0' : String(value);
+  };
+  const formatPercentConAcceso = (value: number | null | undefined, ultimoAcceso?: string) => {
+    if (!hasUltimoAcceso(ultimoAcceso)) return '-';
+    return value === null || value === undefined ? '0%' : `${value}%`;
+  };
 
   const today = useMemo(() => {
     const d = new Date();
@@ -328,10 +338,11 @@ const ReporteAvances: React.FC = () => {
       'Fecha de Inicio': formatDate(row.fechaInicio),
       'Fecha Final': formatDate(row.fechaFinal),
       'Último acceso': formatDate(row.ultimoAcceso),
-      'Evaluación Diagnóstica': formatNota(row.notaDiagnostica),
-      'Nota final': formatNota(row.notaFinal),
-      '% Avance': formatPercent(row.porcentajeAvance),
-      '% Asistencia': formatPercent(row.porcentajeAsistencia),
+      'Evaluación Diagnóstica': formatNotaConAcceso(row.notaDiagnostica, row.ultimoAcceso),
+      'Nota final': formatNotaConAcceso(row.notaFinal, row.ultimoAcceso),
+      // La columna "% Avance" conserva la lógica de asistencia (evaluaciones intentadas),
+      // solo cambia el nombre. Se mantienen los casos especiales del cálculo original.
+      '% Avance': formatPercentConAcceso(row.porcentajeAsistencia, row.ultimoAcceso),
       'Fecha reporte': formatDate(row.fechaReporte || generatedAt),
       'N° Correlativo': row.correlativo ?? '',
       'Responsable': row.responsable || '',
@@ -366,7 +377,6 @@ const ReporteAvances: React.FC = () => {
       columns.push(
         { header: 'Nota final', key: 'Nota final', width: 12 },
         { header: '% Avance', key: '% Avance', width: 12 },
-        { header: '% Asistencia', key: '% Asistencia', width: 14 },
         { header: 'Fecha reporte', key: 'Fecha reporte', width: 18 },
         { header: 'N° Correlativo', key: 'N° Correlativo', width: 16 },
         { header: 'Responsable', key: 'Responsable', width: 20 },
@@ -607,7 +617,6 @@ const ReporteAvances: React.FC = () => {
                     )}
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">Nota final</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">% Avance</th>
-                    <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">% Asistencia</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">N° Correlativo</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[200px]">Responsable</th>
                   </tr>
@@ -615,7 +624,7 @@ const ReporteAvances: React.FC = () => {
                 <tbody className="divide-y divide-gray-200">
                   {!loading && !error && exportRows.length === 0 ? (
                     <tr>
-                      <td colSpan={showEvaluacionDiagnostica ? 16 : 15} className="px-4 py-6 text-center text-gray-500">
+                      <td colSpan={showEvaluacionDiagnostica ? 15 : 14} className="px-4 py-6 text-center text-gray-500">
                         No hay datos disponibles
                       </td>
                     </tr>
@@ -637,7 +646,6 @@ const ReporteAvances: React.FC = () => {
                         )}
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Nota final']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['% Avance']}</td>
-                        <td className="px-4 py-3 text-sm text-gray-700">{row['% Asistencia']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['N° Correlativo']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Responsable']}</td>
                       </tr>
