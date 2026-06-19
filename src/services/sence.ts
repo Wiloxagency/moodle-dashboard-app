@@ -42,6 +42,46 @@ export const senceApi = {
     return json.data || [];
   },
 
+  async create(payload: Partial<Sence>): Promise<Sence> {
+    const body = { ...payload } as any;
+    delete body._id;
+    delete body.code;
+    const res = await fetch(BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json: ApiResponse<Sence> = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message || 'Error creando registro Sence');
+    }
+    return json.data!;
+  },
+
+  async update(id: string, payload: Partial<Sence>): Promise<Sence> {
+    const body = { ...payload } as any;
+    delete body._id;
+    delete body.code;
+    const res = await fetch(`${BASE}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json: ApiResponse<Sence> = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message || 'Error actualizando registro Sence');
+    }
+    return json.data!;
+  },
+
+  async remove(id: string): Promise<void> {
+    const res = await fetch(`${BASE}/${id}`, { method: 'DELETE' });
+    const json: ApiResponse<void> = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json?.error?.message || 'Error eliminando registro Sence');
+    }
+  },
+
   async importBulk(cursos: Array<Partial<Sence>>): Promise<{ inserted: number; updated: number; total: number }> {
     const res = await fetch(`${BASE}/import/bulk`, {
       method: 'POST',

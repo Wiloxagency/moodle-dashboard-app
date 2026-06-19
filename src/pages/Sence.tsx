@@ -1,7 +1,35 @@
 import React, { useEffect, useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
+import { Download, FileSpreadsheet, Plus } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
+import SenceForm from '../components/SenceForm';
 import { senceApi, type Sence } from '../services/sence';
+
+// Encabezados de la plantilla de carga (coinciden con las columnas que lee el importador)
+const TEMPLATE_HEADERS = [
+  'Código Sence',
+  'Nombre_SENCE',
+  'Horas Teóricas',
+  'Horas Practicas',
+  'Horas E-learning',
+  'Horas Totales',
+  'Número de Participantes',
+  'Término Vigencia',
+  'Área',
+  'Especialidad',
+  'Modalidad de instrucción',
+  'Modo',
+  'Valor efectivo por participante',
+  'Valor máximo imputable',
+  'N° Solicitud',
+  'Fecha Resolución',
+  'Número Resolución',
+  'Valor Hora Imputable',
+  'Exclusivo cliente',
+  'Dirigido por relator',
+  'Incluye Tablet',
+  'OTEC',
+];
 
 // Helpers para normalizar datos desde Excel
 const toNumberCell = (v: any): number | undefined => {
@@ -26,6 +54,8 @@ const SencePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [excelImporting, setExcelImporting] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Sence | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const load = async () => {
@@ -44,6 +74,61 @@ const SencePage: React.FC = () => {
   useEffect(() => {
     load();
   }, []);
+
+  const handleDownloadTemplate = () => {
+    const worksheet = XLSX.utils.aoa_to_sheet([TEMPLATE_HEADERS]);
+    // Ancho de columnas para facilitar el llenado manual
+    worksheet['!cols'] = TEMPLATE_HEADERS.map((h) => ({ wch: Math.max(14, h.length + 2) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Plantilla Sence');
+    XLSX.writeFile(workbook, 'plantilla_sence.xlsx');
+  };
+
+  const handleNew = () => {
+    setEditing(null);
+    setShowForm(true);
+  };
+
+  const handleEdit = (row: Sence) => {
+    setEditing(row);
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditing(null);
+  };
+
+  const handleSave = async (payload: Partial<Sence>) => {
+    try {
+      setError(null);
+      setNotice(null);
+      if (editing && editing._id) {
+        await senceApi.update(editing._id, payload);
+        setNotice('Registro Sence actualizado correctamente.');
+      } else {
+        await senceApi.create(payload);
+        setNotice('Registro Sence creado correctamente.');
+      }
+      closeForm();
+      await load();
+    } catch (e: any) {
+      setError(e?.message || 'Error guardando el registro Sence');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      setError(null);
+      setNotice(null);
+      await senceApi.remove(id);
+      setNotice('Registro Sence eliminado correctamente.');
+      closeForm();
+      await load();
+    } catch (e: any) {
+      setError(e?.message || 'Error eliminando el registro Sence');
+    }
+  };
 
   const handleImportFromExcelClick = () => {
     if (excelImporting) return;
@@ -186,10 +271,27 @@ const SencePage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={handleNew}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  Agregar registro Sence
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Descargar Plantilla
+                </button>
+                <button
+                  type="button"
                   onClick={handleImportFromExcelClick}
                   disabled={excelImporting}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50"
                 >
+                  <FileSpreadsheet className="w-4 h-4" />
                   {excelImporting ? 'Importando...' : 'Cargar Excel'}
                 </button>
                 <input
@@ -250,7 +352,12 @@ const SencePage: React.FC = () => {
                       </tr>
                     ) : (
                       data.map((row) => (
-                        <tr key={row._id || row.code}>
+                        <tr
+                          key={row._id || row.code}
+                          onClick={() => handleEdit(row)}
+                          className="hover:bg-gray-50 cursor-pointer"
+                          title="Click para editar este registro"
+                        >
                           <td className="px-3 py-2 whitespace-nowrap text-gray-900">{row.code}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-gray-900">{row.codigo_sence || '-'}</td>
                           <td className="px-3 py-2 whitespace-nowrap text-gray-900">{row.nombre_sence || '-'}</td>
@@ -284,6 +391,30 @@ const SencePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">
+                {editing ? 'Editar registro Sence' : 'Agregar registro Sence'}
+              </h3>
+              <button
+                onClick={closeForm}
+                className="text-gray-500 hover:text-gray-700 text-xl font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <SenceForm
+              initial={editing || undefined}
+              onCancel={closeForm}
+              onSave={handleSave}
+              onDelete={editing && editing._id ? handleDelete : undefined}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

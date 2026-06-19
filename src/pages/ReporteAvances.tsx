@@ -106,6 +106,8 @@ const ReporteAvances: React.FC = () => {
   const [empresaFilterCode, setEmpresaFilterCode] = useState<number | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().code : null));
   const [holdingFilter, setHoldingFilter] = useState<string | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().holding : null));
   const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
+  // Búsqueda solo para consulta/verificación: filtra la tabla visible pero NO afecta el Excel exportado.
+  const [verifySearch, setVerifySearch] = useState('');
 
   const showEmpresaFilter = isAllEmpresasMode || isHoldingMode;
 
@@ -349,6 +351,16 @@ const ReporteAvances: React.FC = () => {
     }));
   }, [filteredRows, generatedAt, empresaByCode]);
 
+  // Filas mostradas en la tabla. Aplica la búsqueda de verificación (texto libre
+  // sobre cualquier columna visible) SOLO para la vista; el Excel sigue usando exportRows.
+  const displayRows = useMemo(() => {
+    const query = normalizeText(verifySearch);
+    if (!query) return exportRows;
+    return exportRows.filter((row) =>
+      Object.values(row).some((value) => normalizeText(String(value ?? '')).includes(query))
+    );
+  }, [exportRows, verifySearch]);
+
   const handleExport = async () => {
     if (!exportRows.length || exporting) return;
     setExporting(true);
@@ -562,6 +574,28 @@ const ReporteAvances: React.FC = () => {
                   </div>
                 )}
 
+                <div className="relative min-w-[130px]">
+                  <input
+                    type="text"
+                    value={verifySearch}
+                    onChange={(e) => setVerifySearch(e.target.value)}
+                    placeholder="Buscar..."
+                    title="Búsqueda solo para consulta/verificación. No afecta el Excel exportado."
+                    className="w-full h-9 border rounded px-2 text-sm"
+                    autoComplete="off"
+                  />
+                  {verifySearch.trim() !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => setVerifySearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none"
+                      aria-label="Limpiar búsqueda"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
@@ -622,14 +656,14 @@ const ReporteAvances: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {!loading && !error && exportRows.length === 0 ? (
+                  {!loading && !error && displayRows.length === 0 ? (
                     <tr>
                       <td colSpan={showEvaluacionDiagnostica ? 15 : 14} className="px-4 py-6 text-center text-gray-500">
-                        No hay datos disponibles
+                        {exportRows.length === 0 ? 'No hay datos disponibles' : 'Sin resultados para la búsqueda actual'}
                       </td>
                     </tr>
                   ) : (
-                    exportRows.map((row, idx) => (
+                    displayRows.map((row, idx) => (
                       <tr key={idx} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Empresa']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Nombre del Curso']}</td>
