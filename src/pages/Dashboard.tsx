@@ -437,21 +437,36 @@ const Dashboard: React.FC = () => {
       if (!total) {
         setReportStatus(`No hay inscripciones abiertas para actualizar en ${scopeLabel}.`);
       } else {
+        // Tamaño de lote por request para no superar el timeout de nginx (504)
+        // en cursos con muchos alumnos. Cada request procesa como máximo
+        // CHUNK_SIZE participantes; se itera hasta que el backend indique hasMore=false.
+        const CHUNK_SIZE = 25;
         let current = 0;
         let failures = 0;
         for (const ins of openIns) {
           current += 1;
-          setReportStatus(`Procesando ${current} de ${total} inscripciones (${scopeLabel})...`);
           const num = ins.numeroInscripcion;
           try {
-            const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(String(num))}/grades-numeric`;
-            const res = await fetch(url, { cache: 'no-store' });
-            if (!res.ok) {
-              const text = await res.text();
-              throw new Error(text || `Error generando reporte para inscripción ${num}`);
+            let offset = 0;
+            let hasMore = true;
+            while (hasMore) {
+              const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(String(num))}/grades-numeric?offset=${offset}&limit=${CHUNK_SIZE}`;
+              const res = await fetch(url, { cache: 'no-store' });
+              if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `Error generando reporte para inscripción ${num}`);
+              }
+              const json = await res.json();
+              if (!json.success) throw new Error(json.error?.message || `Error generando reporte para inscripción ${num}`);
+
+              const totalPart = Number(json.total) || 0;
+              const processedSoFar = Math.min(offset + (Number(json.processed) || 0), totalPart);
+              const partSuffix = totalPart > CHUNK_SIZE ? ` — alumnos ${processedSoFar}/${totalPart}` : '';
+              setReportStatus(`Procesando ${current} de ${total} inscripciones (${scopeLabel})${partSuffix}...`);
+
+              hasMore = Boolean(json.hasMore);
+              offset += CHUNK_SIZE;
             }
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error?.message || `Error generando reporte para inscripción ${num}`);
 
             if (shouldCloseInscripcion(ins.termino) && ins._id) {
               try {
