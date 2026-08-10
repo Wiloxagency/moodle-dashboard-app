@@ -410,6 +410,32 @@ const Dashboard: React.FC = () => {
     return today.getTime() >= closeDate.getTime();
   };
 
+  // ¿La fecha de término sigue vigente? Sin fecha se considera vigente, que es
+  // el mismo criterio que usa shouldCloseInscripcion para no cerrar nunca.
+  const sigueVigentePorFecha = (termino?: string) => {
+    if (!termino) return true;
+    const end = parseDateOnly(termino);
+    if (!end) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return end.getTime() >= today.getTime();
+  };
+
+  // Inscripciones que hay que refrescar.
+  //
+  // Antes bastaba con `status != 'cerrada'`. El problema: cerrar es
+  // irreversible (nada reabre una inscripción) y la fecha de término se edita a
+  // mano. Al extender un curso ya cerrado, sus notas dejaban de actualizarse
+  // para siempre. El 2026-08-10 eso afectaba a 511 de 700 participantes de
+  // cursos vigentes (485 sólo en Datco).
+  //
+  // Ahora se refresca si NO está cerrada O si su término sigue vigente. Esto
+  // sólo cambia QUÉ se refresca: no escribe ningún status, así que la regla de
+  // cierre y el envío a VMICA (que filtra por status_vimica, no por status)
+  // quedan exactamente igual.
+  const debeRefrescarse = (ins: { status?: string; termino?: string }) =>
+    !isClosedStatus(ins.status) || sigueVigentePorFecha(ins.termino);
+
   const runActualizar = async (scope: 'empresa' | 'todo') => {
     if (reportUpdating || refreshing || loading) return;
     setReportUpdating(true);
@@ -432,7 +458,7 @@ const Dashboard: React.FC = () => {
       const scopeLabel = scope === 'todo'
         ? 'todas las empresas'
         : (sessionMode === 'holding' ? 'el holding activo' : 'la empresa activa');
-      const openIns = filtered.filter((ins) => !isClosedStatus(ins.status));
+      const openIns = filtered.filter(debeRefrescarse);
       const total = openIns.length;
       if (!total) {
         setReportStatus(`No hay inscripciones abiertas para actualizar en ${scopeLabel}.`);
