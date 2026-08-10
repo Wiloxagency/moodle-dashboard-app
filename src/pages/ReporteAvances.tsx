@@ -146,11 +146,14 @@ const ReporteAvances: React.FC = () => {
 
   // Regla de visualización según "Último acceso":
   // - Sin fecha de último acceso => se muestra "-"
-  // - Con fecha de último acceso => si no hay dato se muestra 0 / 0% (nunca vacío)
+  // - Con fecha de último acceso, para las NOTAS:
+  //     * null / sin dato  => "-"  (el alumno NO rindió la evaluación)
+  //     * 0                => "0"  (la rindió y obtuvo cero)
+  //   Antes ambos casos se mostraban como "0" y no se podían distinguir.
   const hasUltimoAcceso = (ultimoAcceso?: string) => formatDate(ultimoAcceso) !== '';
   const formatNotaConAcceso = (value: number | null | undefined, ultimoAcceso?: string) => {
     if (!hasUltimoAcceso(ultimoAcceso)) return '-';
-    return value === null || value === undefined ? '0' : String(value);
+    return value === null || value === undefined ? '-' : String(value);
   };
   const formatPercentConAcceso = (value: number | null | undefined, ultimoAcceso?: string) => {
     if (!hasUltimoAcceso(ultimoAcceso)) return '-';
