@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Download } from 'lucide-react';
 import { reportesApi, type ReporteAvanceRow } from '../services/reportes';
 import { empresasApi, type Empresa } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
@@ -63,7 +64,9 @@ const courseKeyOf = (row: ReporteAvanceRow) =>
   `${row.idSence || ''}||${row.correlativo ?? ''}||${row.nombreCurso || ''}||${row.empresa || ''}`;
 
 const evalSheetName = (count: number) => (count === 1 ? '1 Evaluación' : `${count} Evaluaciones`);
-const evalOptionLabel = (count: number) => (count === 1 ? '1 evaluación' : `${count} evaluaciones`);
+// Etiquetas cortas: la barra de filtros se parte en dos líneas si crecen.
+// El nombre de las PESTAÑAS del Excel sigue siendo largo (evalSheetName).
+const evalOptionLabel = (count: number) => `${count} Eva`;
 
 const SHARED_EMPRESA_FILTER_KEY = 'sharedEmpresaFilterV1';
 
@@ -120,7 +123,8 @@ const ReporteAvances: React.FC = () => {
   const [empresaFilterCode, setEmpresaFilterCode] = useState<number | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().code : null));
   const [holdingFilter, setHoldingFilter] = useState<string | null>(() => (getSessionMode(user) === 'multi' ? readSharedEmpresaFilter().holding : null));
   const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
-  // Búsqueda solo para consulta/verificación: filtra la tabla visible pero NO afecta el Excel exportado.
+  // Filtro de texto libre sobre las columnas visibles. Afecta a la tabla Y al
+  // Excel exportado: el archivo debe contener lo mismo que muestra la interfaz.
   const [verifySearch, setVerifySearch] = useState('');
   // Evaluaciones por módulo: la casilla añade una columna por cada evaluación
   // del curso; el select filtra los cursos por su cantidad de evaluaciones.
@@ -344,76 +348,6 @@ const ReporteAvances: React.FC = () => {
     [filteredRows]
   );
 
-  // Cantidad de evaluaciones por módulo de cada curso. Se toma el máximo entre
-  // las filas del curso: si un alumno tiene menos ítems (actividad oculta para
-  // él, matrícula tardía), la columna existe igual y queda vacía en su fila.
-  const evalCountByCourse = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of filteredRows) {
-      const key = courseKeyOf(row);
-      const count = Array.isArray(row.evaluacionesModulo) ? row.evaluacionesModulo.length : 0;
-      map.set(key, Math.max(map.get(key) ?? 0, count));
-    }
-    return map;
-  }, [filteredRows]);
-
-  const evalCountOf = (row: ReporteAvanceRow) => evalCountByCourse.get(courseKeyOf(row)) ?? 0;
-
-  // Opciones del select: las cantidades que realmente existen entre los cursos
-  // del filtro actual (sin el 0, que corresponde a cursos sin evaluaciones).
-  const evalCountOptions = useMemo(() => {
-    const counts = new Set<number>();
-    for (const count of evalCountByCourse.values()) {
-      if (count > 0) counts.add(count);
-    }
-    return Array.from(counts).sort((a, b) => a - b);
-  }, [evalCountByCourse]);
-
-  // Si la casilla se desmarca, o la cantidad elegida ya no existe tras cambiar
-  // otro filtro, se vuelve a "Todas" para no dejar la tabla vacía sin motivo.
-  useEffect(() => {
-    if (!showEvalsModulo) {
-      if (evalCountFilter !== '') setEvalCountFilter('');
-      return;
-    }
-    if (evalCountFilter !== '' && !evalCountOptions.includes(Number(evalCountFilter))) {
-      setEvalCountFilter('');
-    }
-  }, [showEvalsModulo, evalCountFilter, evalCountOptions]);
-
-  const visibleRows = useMemo(() => {
-    if (!showEvalsModulo || evalCountFilter === '') return filteredRows;
-    const target = Number(evalCountFilter);
-    if (!Number.isFinite(target)) return filteredRows;
-    return filteredRows.filter((row) => evalCountOf(row) === target);
-  }, [filteredRows, showEvalsModulo, evalCountFilter, evalCountByCourse]);
-
-  // Nº de columnas de evaluación a dibujar: el máximo de los cursos visibles.
-  const maxEvalCount = useMemo(() => {
-    if (!showEvalsModulo) return 0;
-    let max = 0;
-    for (const row of visibleRows) max = Math.max(max, evalCountOf(row));
-    return max;
-  }, [showEvalsModulo, visibleRows, evalCountByCourse]);
-
-  const evalColumnIndexes = useMemo(
-    () => Array.from({ length: maxEvalCount }, (_unused, index) => index),
-    [maxEvalCount]
-  );
-
-  // Nombre real de la actividad en Moodle para cada posición: se usa sólo como
-  // tooltip del encabezado, el título de la columna sigue siendo posicional.
-  const evalColumnNames = useMemo(() => {
-    const names: string[] = [];
-    for (const row of visibleRows) {
-      const evals = row.evaluacionesModulo || [];
-      for (let i = 0; i < evals.length; i++) {
-        if (!names[i] && evals[i]?.nombre) names[i] = evals[i].nombre;
-      }
-    }
-    return names;
-  }, [visibleRows]);
-
   type ExportRecord = Record<string, string | number>;
 
   const buildBaseRow = (row: ReporteAvanceRow): ExportRecord => ({
@@ -454,20 +388,106 @@ const ReporteAvances: React.FC = () => {
     return record;
   };
 
+  // Filtro de texto libre. A diferencia de antes, SÍ afecta al Excel: el archivo
+  // exportado debe contener exactamente lo que muestra la interfaz. Se busca sobre
+  // los valores ya formateados, que son los que el usuario ve en pantalla.
+  const searchedRows = useMemo(() => {
+    const query = normalizeText(verifySearch);
+    if (!query) return filteredRows;
+    return filteredRows.filter((row) => {
+      const values = Object.values(buildBaseRow(row)).map((value) => String(value ?? ''));
+      // Las notas por módulo sólo entran en la búsqueda cuando sus columnas
+      // están visibles, para no filtrar por un dato que no se ve.
+      if (showEvalsModulo) {
+        for (const item of row.evaluacionesModulo || []) {
+          values.push(formatNotaConAcceso(item.nota, row.ultimoAcceso));
+        }
+      }
+      return values.some((value) => normalizeText(value).includes(query));
+    });
+  }, [filteredRows, verifySearch, showEvalsModulo, empresaByCode, generatedAt]);
+
+  // Cantidad de evaluaciones por módulo de cada curso. Se calcula sobre
+  // filteredRows (la población completa del curso) y NO sobre searchedRows: si el
+  // filtro de texto deja fuera a parte de los alumnos, la cantidad del curso no
+  // debe cambiar. Se toma el máximo entre sus filas, así que un alumno con menos
+  // ítems (actividad oculta para él, matrícula tardía) no rompe la alineación.
+  const evalCountByCourse = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of filteredRows) {
+      const key = courseKeyOf(row);
+      const count = Array.isArray(row.evaluacionesModulo) ? row.evaluacionesModulo.length : 0;
+      map.set(key, Math.max(map.get(key) ?? 0, count));
+    }
+    return map;
+  }, [filteredRows]);
+
+  const evalCountOf = (row: ReporteAvanceRow) => evalCountByCourse.get(courseKeyOf(row)) ?? 0;
+
+  // Opciones del select: las cantidades presentes entre los cursos que quedan
+  // tras el resto de los filtros (sin el 0, que son los cursos sin evaluaciones).
+  const evalCountOptions = useMemo(() => {
+    const counts = new Set<number>();
+    for (const row of searchedRows) {
+      const count = evalCountOf(row);
+      if (count > 0) counts.add(count);
+    }
+    return Array.from(counts).sort((a, b) => a - b);
+  }, [searchedRows, evalCountByCourse]);
+
+  // Si la casilla se desmarca, o la cantidad elegida ya no existe tras cambiar
+  // otro filtro, se vuelve a "Todas" para no dejar la tabla vacía sin motivo.
+  useEffect(() => {
+    if (!showEvalsModulo) {
+      if (evalCountFilter !== '') setEvalCountFilter('');
+      return;
+    }
+    if (evalCountFilter !== '' && !evalCountOptions.includes(Number(evalCountFilter))) {
+      setEvalCountFilter('');
+    }
+  }, [showEvalsModulo, evalCountFilter, evalCountOptions]);
+
+  const visibleRows = useMemo(() => {
+    if (!showEvalsModulo || evalCountFilter === '') return searchedRows;
+    const target = Number(evalCountFilter);
+    if (!Number.isFinite(target)) return searchedRows;
+    return searchedRows.filter((row) => evalCountOf(row) === target);
+  }, [searchedRows, showEvalsModulo, evalCountFilter, evalCountByCourse]);
+
+  // Nº de columnas de evaluación a dibujar: el máximo de los cursos visibles.
+  const maxEvalCount = useMemo(() => {
+    if (!showEvalsModulo) return 0;
+    let max = 0;
+    for (const row of visibleRows) max = Math.max(max, evalCountOf(row));
+    return max;
+  }, [showEvalsModulo, visibleRows, evalCountByCourse]);
+
+  const evalColumnIndexes = useMemo(
+    () => Array.from({ length: maxEvalCount }, (_unused, index) => index),
+    [maxEvalCount]
+  );
+
+  // Nombre real de la actividad en Moodle para cada posición: se usa sólo como
+  // tooltip del encabezado, el título de la columna sigue siendo posicional.
+  const evalColumnNames = useMemo(() => {
+    const names: string[] = [];
+    for (const row of visibleRows) {
+      const evals = row.evaluacionesModulo || [];
+      for (let i = 0; i < evals.length; i++) {
+        if (!names[i] && evals[i]?.nombre) names[i] = evals[i].nombre;
+      }
+    }
+    return names;
+  }, [visibleRows]);
+
+  // Filas de la tabla. Ya traen aplicados TODOS los filtros, y son las mismas
+  // que alimentan el Excel, por eso displayRows y exportRows son lo mismo.
   const exportRows = useMemo(
     () => visibleRows.map((row) => buildExportRow(row, maxEvalCount)),
     [visibleRows, maxEvalCount, generatedAt, empresaByCode]
   );
 
-  // Filas mostradas en la tabla. Aplica la búsqueda de verificación (texto libre
-  // sobre cualquier columna visible) SOLO para la vista; el Excel sigue usando exportRows.
-  const displayRows = useMemo(() => {
-    const query = normalizeText(verifySearch);
-    if (!query) return exportRows;
-    return exportRows.filter((row) =>
-      Object.values(row).some((value) => normalizeText(String(value ?? '')).includes(query))
-    );
-  }, [exportRows, verifySearch]);
+  const displayRows = exportRows;
 
   const handleExport = async () => {
     if (!exportRows.length || exporting) return;
@@ -528,14 +548,17 @@ const ReporteAvances: React.FC = () => {
       };
 
       if (!showEvalsModulo) {
-        addSheet('Reporte', filteredRows, 0);
+        addSheet('Reporte', searchedRows, 0);
       } else {
         // Con la casilla activa se genera una pestaña por cada cantidad de
         // evaluaciones por módulo ("1 Evaluación", "3 Evaluaciones", ...). Se
-        // generan SIEMPRE todas las pestañas: el select del filtro sólo afecta
-        // a la tabla en pantalla, no al Excel.
+        // generan SIEMPRE todas las pestañas: el select de cantidad es el ÚNICO
+        // control que no restringe el Excel (así el archivo trae la vista
+        // completa repartida por grupos). El resto de los filtros —modo,
+        // fechas, empresa, texto libre y orden— ya vienen aplicados en
+        // searchedRows, así que el Excel muestra lo mismo que la interfaz.
         const groups = new Map<number, ReporteAvanceRow[]>();
-        for (const row of filteredRows) {
+        for (const row of searchedRows) {
           const count = evalCountOf(row);
           const group = groups.get(count) || [];
           group.push(row);
@@ -556,7 +579,7 @@ const ReporteAvances: React.FC = () => {
         // Red de seguridad: si no hubo ninguna fila, se mantiene la hoja única
         // de siempre para no generar un archivo sin hojas (ExcelJS falla).
         if (!workbook.worksheets.length) {
-          addSheet('Reporte', filteredRows, 0);
+          addSheet('Reporte', searchedRows, 0);
         }
       }
 
@@ -636,7 +659,7 @@ const ReporteAvances: React.FC = () => {
                     onClick={() => setMode('active')}
                     className={`px-3 py-2 text-sm ${mode === 'active' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
                   >
-                    Cursos Activos
+                    Activos
                   </button>
                   <button
                     type="button"
@@ -650,7 +673,7 @@ const ReporteAvances: React.FC = () => {
                     onClick={() => setMode('all')}
                     className={`px-3 py-2 text-sm ${mode === 'all' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'}`}
                   >
-                    Todos los Cursos
+                    Todos
                   </button>
                 </div>
 
@@ -661,7 +684,7 @@ const ReporteAvances: React.FC = () => {
                     placeholder="dd/mm/yyyy"
                     value={dateFrom}
                     onChange={(e) => handleDateChange(e.target.value, setDateFrom)}
-                    className="w-[120px] h-9 border rounded px-2 text-sm"
+                    className="w-[102px] h-9 border rounded px-2 text-sm"
                   />
                 </div>
                 <div className="flex items-center gap-1">
@@ -671,7 +694,7 @@ const ReporteAvances: React.FC = () => {
                     placeholder="dd/mm/yyyy"
                     value={dateTo}
                     onChange={(e) => handleDateChange(e.target.value, setDateTo)}
-                    className="w-[120px] h-9 border rounded px-2 text-sm"
+                    className="w-[102px] h-9 border rounded px-2 text-sm"
                   />
                 </div>
 
@@ -731,8 +754,8 @@ const ReporteAvances: React.FC = () => {
                     type="text"
                     value={verifySearch}
                     onChange={(e) => setVerifySearch(e.target.value)}
-                    placeholder="Buscar..."
-                    title="Búsqueda solo para consulta/verificación. No afecta el Excel exportado."
+                    placeholder="Filtrar..."
+                    title="Filtra por cualquier columna visible. Afecta también al Excel exportado."
                     className="w-full h-9 border rounded px-2 text-sm"
                     autoComplete="off"
                   />
@@ -741,7 +764,7 @@ const ReporteAvances: React.FC = () => {
                       type="button"
                       onClick={() => setVerifySearch('')}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm leading-none"
-                      aria-label="Limpiar búsqueda"
+                      aria-label="Limpiar filtro"
                     >
                       ✕
                     </button>
@@ -758,7 +781,7 @@ const ReporteAvances: React.FC = () => {
                     onChange={(e) => setShowEvalsModulo(e.target.checked)}
                     className="h-4 w-4"
                   />
-                  <span className="whitespace-nowrap">Evaluaciones por módulo</span>
+                  <span className="whitespace-nowrap">Evaluaciones</span>
                 </label>
 
                 {showEvalsModulo && (
@@ -770,7 +793,7 @@ const ReporteAvances: React.FC = () => {
                     className="h-9 border rounded px-2 text-sm disabled:bg-gray-100 disabled:text-gray-400"
                   >
                     <option value="">
-                      {evalCountOptions.length === 0 ? 'Sin evaluaciones por módulo' : 'Todas'}
+                      {evalCountOptions.length === 0 ? 'Sin Eva' : 'Todas'}
                     </option>
                     {evalCountOptions.map((count) => (
                       <option key={count} value={String(count)}>
@@ -799,9 +822,11 @@ const ReporteAvances: React.FC = () => {
                 <button
                   onClick={handleExport}
                   disabled={!exportRows.length || exporting}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Exportar a Excel lo que muestra la tabla con los filtros actuales"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {exporting ? 'Exportando...' : 'Exportar Excel'}
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  <span>{exporting ? 'Exportando...' : 'Excel'}</span>
                 </button>
               </div>
             </div>
@@ -858,7 +883,7 @@ const ReporteAvances: React.FC = () => {
                         colSpan={(showEvaluacionDiagnostica ? 15 : 14) + maxEvalCount}
                         className="px-4 py-6 text-center text-gray-500"
                       >
-                        {exportRows.length === 0 ? 'No hay datos disponibles' : 'Sin resultados para la búsqueda actual'}
+                        {filteredRows.length === 0 ? 'No hay datos disponibles' : 'Sin resultados para los filtros actuales'}
                       </td>
                     </tr>
                   ) : (
