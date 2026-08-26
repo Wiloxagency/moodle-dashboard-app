@@ -51,6 +51,20 @@ const formatDate = (value?: string) => {
 
 const normalizeText = (value?: string) => (value || '').trim().toLowerCase();
 
+// --- Evaluaciones por módulo -------------------------------------------------
+// Las columnas son POSICIONALES ("Eval. 1", "Eval. 2", ...) porque cada curso
+// nombra sus evaluaciones de forma distinta; la posición viene del orden del
+// libro de notas de Moodle, que es el orden de los módulos del curso.
+const EVAL_COL_KEY = (index: number) => `Eval. ${index + 1}`;
+
+// La cantidad de evaluaciones es una propiedad del CURSO, no del alumno: se
+// agrupa por inscripción para que el filtro "1 / 3 evaluaciones" hable de cursos.
+const courseKeyOf = (row: ReporteAvanceRow) =>
+  `${row.idSence || ''}||${row.correlativo ?? ''}||${row.nombreCurso || ''}||${row.empresa || ''}`;
+
+const evalSheetName = (count: number) => (count === 1 ? '1 Evaluación' : `${count} Evaluaciones`);
+const evalOptionLabel = (count: number) => (count === 1 ? '1 evaluación' : `${count} evaluaciones`);
+
 const SHARED_EMPRESA_FILTER_KEY = 'sharedEmpresaFilterV1';
 
 type SharedEmpresaFilterState = {
@@ -108,6 +122,10 @@ const ReporteAvances: React.FC = () => {
   const [empresaFilterOpen, setEmpresaFilterOpen] = useState(false);
   // Búsqueda solo para consulta/verificación: filtra la tabla visible pero NO afecta el Excel exportado.
   const [verifySearch, setVerifySearch] = useState('');
+  // Evaluaciones por módulo: la casilla añade una columna por cada evaluación
+  // del curso; el select filtra los cursos por su cantidad de evaluaciones.
+  const [showEvalsModulo, setShowEvalsModulo] = useState(false);
+  const [evalCountFilter, setEvalCountFilter] = useState('');
 
   const showEmpresaFilter = isAllEmpresasMode || isHoldingMode;
 
@@ -326,33 +344,120 @@ const ReporteAvances: React.FC = () => {
     [filteredRows]
   );
 
-  const exportRows = useMemo(() => {
-    return filteredRows.map((row) => ({
-      'Empresa': (() => {
-        const raw = row.empresa || '';
-        const num = Number(raw);
-        if (Number.isFinite(num) && empresaByCode[num]) return empresaByCode[num];
-        return String(raw || '');
-      })(),
-      'Nombre del Curso': row.nombreCurso || '',
-      'ID Sence': row.idSence || '',
-      'RUT': row.rut || '',
-      'Nombres': row.nombres || '',
-      'Apellidos': row.apellidos || '',
-      'Email': row.email || '',
-      'Fecha de Inicio': formatDate(row.fechaInicio),
-      'Fecha Final': formatDate(row.fechaFinal),
-      'Último acceso': formatDate(row.ultimoAcceso),
-      'Evaluación Diagnóstica': formatNotaConAcceso(row.notaDiagnostica, row.ultimoAcceso),
-      'Nota final': formatNotaConAcceso(row.notaFinal, row.ultimoAcceso),
-      // La columna "% Avance" conserva la lógica de asistencia (evaluaciones intentadas),
-      // solo cambia el nombre. Se mantienen los casos especiales del cálculo original.
-      '% Avance': formatPercentConAcceso(row.porcentajeAsistencia, row.ultimoAcceso),
-      'Fecha reporte': formatDate(row.fechaReporte || generatedAt),
-      'N° Correlativo': row.correlativo ?? '',
-      'Responsable': row.responsable || '',
-    }));
-  }, [filteredRows, generatedAt, empresaByCode]);
+  // Cantidad de evaluaciones por módulo de cada curso. Se toma el máximo entre
+  // las filas del curso: si un alumno tiene menos ítems (actividad oculta para
+  // él, matrícula tardía), la columna existe igual y queda vacía en su fila.
+  const evalCountByCourse = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const row of filteredRows) {
+      const key = courseKeyOf(row);
+      const count = Array.isArray(row.evaluacionesModulo) ? row.evaluacionesModulo.length : 0;
+      map.set(key, Math.max(map.get(key) ?? 0, count));
+    }
+    return map;
+  }, [filteredRows]);
+
+  const evalCountOf = (row: ReporteAvanceRow) => evalCountByCourse.get(courseKeyOf(row)) ?? 0;
+
+  // Opciones del select: las cantidades que realmente existen entre los cursos
+  // del filtro actual (sin el 0, que corresponde a cursos sin evaluaciones).
+  const evalCountOptions = useMemo(() => {
+    const counts = new Set<number>();
+    for (const count of evalCountByCourse.values()) {
+      if (count > 0) counts.add(count);
+    }
+    return Array.from(counts).sort((a, b) => a - b);
+  }, [evalCountByCourse]);
+
+  // Si la casilla se desmarca, o la cantidad elegida ya no existe tras cambiar
+  // otro filtro, se vuelve a "Todas" para no dejar la tabla vacía sin motivo.
+  useEffect(() => {
+    if (!showEvalsModulo) {
+      if (evalCountFilter !== '') setEvalCountFilter('');
+      return;
+    }
+    if (evalCountFilter !== '' && !evalCountOptions.includes(Number(evalCountFilter))) {
+      setEvalCountFilter('');
+    }
+  }, [showEvalsModulo, evalCountFilter, evalCountOptions]);
+
+  const visibleRows = useMemo(() => {
+    if (!showEvalsModulo || evalCountFilter === '') return filteredRows;
+    const target = Number(evalCountFilter);
+    if (!Number.isFinite(target)) return filteredRows;
+    return filteredRows.filter((row) => evalCountOf(row) === target);
+  }, [filteredRows, showEvalsModulo, evalCountFilter, evalCountByCourse]);
+
+  // Nº de columnas de evaluación a dibujar: el máximo de los cursos visibles.
+  const maxEvalCount = useMemo(() => {
+    if (!showEvalsModulo) return 0;
+    let max = 0;
+    for (const row of visibleRows) max = Math.max(max, evalCountOf(row));
+    return max;
+  }, [showEvalsModulo, visibleRows, evalCountByCourse]);
+
+  const evalColumnIndexes = useMemo(
+    () => Array.from({ length: maxEvalCount }, (_unused, index) => index),
+    [maxEvalCount]
+  );
+
+  // Nombre real de la actividad en Moodle para cada posición: se usa sólo como
+  // tooltip del encabezado, el título de la columna sigue siendo posicional.
+  const evalColumnNames = useMemo(() => {
+    const names: string[] = [];
+    for (const row of visibleRows) {
+      const evals = row.evaluacionesModulo || [];
+      for (let i = 0; i < evals.length; i++) {
+        if (!names[i] && evals[i]?.nombre) names[i] = evals[i].nombre;
+      }
+    }
+    return names;
+  }, [visibleRows]);
+
+  type ExportRecord = Record<string, string | number>;
+
+  const buildBaseRow = (row: ReporteAvanceRow): ExportRecord => ({
+    'Empresa': (() => {
+      const raw = row.empresa || '';
+      const num = Number(raw);
+      if (Number.isFinite(num) && empresaByCode[num]) return empresaByCode[num];
+      return String(raw || '');
+    })(),
+    'Nombre del Curso': row.nombreCurso || '',
+    'ID Sence': row.idSence || '',
+    'RUT': row.rut || '',
+    'Nombres': row.nombres || '',
+    'Apellidos': row.apellidos || '',
+    'Email': row.email || '',
+    'Fecha de Inicio': formatDate(row.fechaInicio),
+    'Fecha Final': formatDate(row.fechaFinal),
+    'Último acceso': formatDate(row.ultimoAcceso),
+    'Evaluación Diagnóstica': formatNotaConAcceso(row.notaDiagnostica, row.ultimoAcceso),
+    'Nota final': formatNotaConAcceso(row.notaFinal, row.ultimoAcceso),
+    // La columna "% Avance" conserva la lógica de asistencia (evaluaciones intentadas),
+    // solo cambia el nombre. Se mantienen los casos especiales del cálculo original.
+    '% Avance': formatPercentConAcceso(row.porcentajeAsistencia, row.ultimoAcceso),
+    'Fecha reporte': formatDate(row.fechaReporte || generatedAt),
+    'N° Correlativo': row.correlativo ?? '',
+    'Responsable': row.responsable || '',
+  });
+
+  // Añade `evalCount` columnas posicionales. Las notas siguen la misma regla que
+  // el resto: sin último acceso => "-", null => "-" (no rindió), 0 => "0".
+  const buildExportRow = (row: ReporteAvanceRow, evalCount: number): ExportRecord => {
+    const record = buildBaseRow(row);
+    const evals = row.evaluacionesModulo || [];
+    for (let i = 0; i < evalCount; i++) {
+      const item = evals[i];
+      record[EVAL_COL_KEY(i)] = item ? formatNotaConAcceso(item.nota, row.ultimoAcceso) : '';
+    }
+    return record;
+  };
+
+  const exportRows = useMemo(
+    () => visibleRows.map((row) => buildExportRow(row, maxEvalCount)),
+    [visibleRows, maxEvalCount, generatedAt, empresaByCode]
+  );
 
   // Filas mostradas en la tabla. Aplica la búsqueda de verificación (texto libre
   // sobre cualquier columna visible) SOLO para la vista; el Excel sigue usando exportRows.
@@ -370,46 +475,90 @@ const ReporteAvances: React.FC = () => {
     try {
       const mod = await import('exceljs');
       const workbook = new mod.Workbook();
-      const worksheet = workbook.addWorksheet('Reporte');
 
-      const columns: Array<{ header: string; key: string; width: number }> = [
-        { header: 'Empresa', key: 'Empresa', width: 18 },
-        { header: 'Nombre del Curso', key: 'Nombre del Curso', width: 54 },
-        { header: 'ID Sence', key: 'ID Sence', width: 18 },
-        { header: 'RUT', key: 'RUT', width: 16 },
-        { header: 'Nombres', key: 'Nombres', width: 20 },
-        { header: 'Apellidos', key: 'Apellidos', width: 20 },
-        { header: 'Email', key: 'Email', width: 28 },
-        { header: 'Fecha de Inicio', key: 'Fecha de Inicio', width: 18 },
-        { header: 'Fecha Final', key: 'Fecha Final', width: 18 },
-        { header: 'Último acceso', key: 'Último acceso', width: 18 },
-      ];
+      const buildColumns = (evalCount: number) => {
+        const columns: Array<{ header: string; key: string; width: number }> = [
+          { header: 'Empresa', key: 'Empresa', width: 18 },
+          { header: 'Nombre del Curso', key: 'Nombre del Curso', width: 54 },
+          { header: 'ID Sence', key: 'ID Sence', width: 18 },
+          { header: 'RUT', key: 'RUT', width: 16 },
+          { header: 'Nombres', key: 'Nombres', width: 20 },
+          { header: 'Apellidos', key: 'Apellidos', width: 20 },
+          { header: 'Email', key: 'Email', width: 28 },
+          { header: 'Fecha de Inicio', key: 'Fecha de Inicio', width: 18 },
+          { header: 'Fecha Final', key: 'Fecha Final', width: 18 },
+          { header: 'Último acceso', key: 'Último acceso', width: 18 },
+        ];
 
-      if (showEvaluacionDiagnostica) {
-        columns.push({ header: 'Eval\nDiag.', key: 'Evaluación Diagnóstica', width: 9 });
+        if (showEvaluacionDiagnostica) {
+          columns.push({ header: 'Eval\nDiag.', key: 'Evaluación Diagnóstica', width: 9 });
+        }
+
+        // Columnas posicionales de las evaluaciones por módulo del grupo.
+        for (let i = 0; i < evalCount; i++) {
+          columns.push({ header: `Eval.\n${i + 1}`, key: EVAL_COL_KEY(i), width: 9 });
+        }
+
+        columns.push(
+          { header: 'Nota final', key: 'Nota final', width: 12 },
+          { header: '% Avance', key: '% Avance', width: 12 },
+          { header: 'Fecha reporte', key: 'Fecha reporte', width: 18 },
+          { header: 'N° Correlativo', key: 'N° Correlativo', width: 16 },
+          { header: 'Responsable', key: 'Responsable', width: 20 },
+        );
+
+        return columns;
+      };
+
+      const addSheet = (name: string, rows: ReporteAvanceRow[], evalCount: number) => {
+        const worksheet = workbook.addWorksheet(name);
+        worksheet.columns = buildColumns(evalCount);
+
+        rows.forEach((row) => worksheet.addRow(buildExportRow(row, evalCount)));
+
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006400' } };
+          cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+          cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        });
+        headerRow.height = 30;
+
+        worksheet.views = [{ state: 'frozen', ySplit: 1 }];
+      };
+
+      if (!showEvalsModulo) {
+        addSheet('Reporte', filteredRows, 0);
+      } else {
+        // Con la casilla activa se genera una pestaña por cada cantidad de
+        // evaluaciones por módulo ("1 Evaluación", "3 Evaluaciones", ...). Se
+        // generan SIEMPRE todas las pestañas: el select del filtro sólo afecta
+        // a la tabla en pantalla, no al Excel.
+        const groups = new Map<number, ReporteAvanceRow[]>();
+        for (const row of filteredRows) {
+          const count = evalCountOf(row);
+          const group = groups.get(count) || [];
+          group.push(row);
+          groups.set(count, group);
+        }
+
+        const counts = Array.from(groups.keys()).filter((count) => count > 0).sort((a, b) => a - b);
+        for (const count of counts) {
+          addSheet(evalSheetName(count), groups.get(count) || [], count);
+        }
+
+        // Los cursos sin ninguna evaluación por módulo van a su propia pestaña.
+        const sinEvaluaciones = groups.get(0) || [];
+        if (sinEvaluaciones.length) {
+          addSheet('Sin evaluaciones', sinEvaluaciones, 0);
+        }
+
+        // Red de seguridad: si no hubo ninguna fila, se mantiene la hoja única
+        // de siempre para no generar un archivo sin hojas (ExcelJS falla).
+        if (!workbook.worksheets.length) {
+          addSheet('Reporte', filteredRows, 0);
+        }
       }
-
-      columns.push(
-        { header: 'Nota final', key: 'Nota final', width: 12 },
-        { header: '% Avance', key: '% Avance', width: 12 },
-        { header: 'Fecha reporte', key: 'Fecha reporte', width: 18 },
-        { header: 'N° Correlativo', key: 'N° Correlativo', width: 16 },
-        { header: 'Responsable', key: 'Responsable', width: 20 },
-      );
-
-      worksheet.columns = columns;
-
-      exportRows.forEach((row) => worksheet.addRow(row));
-
-      const headerRow = worksheet.getRow(1);
-      headerRow.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF006400' } };
-        cell.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      });
-      headerRow.height = 30;
-
-      worksheet.views = [{ state: 'frozen', ySplit: 1 }];
 
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
@@ -599,6 +748,38 @@ const ReporteAvances: React.FC = () => {
                   )}
                 </div>
 
+                <label
+                  className="inline-flex items-center gap-2 h-9 px-2 border rounded text-sm text-gray-700 cursor-pointer select-none"
+                  title="Muestra, además de la Diagnóstica y la Nota final, todas las evaluaciones de cada módulo del curso."
+                >
+                  <input
+                    type="checkbox"
+                    checked={showEvalsModulo}
+                    onChange={(e) => setShowEvalsModulo(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="whitespace-nowrap">Evaluaciones por módulo</span>
+                </label>
+
+                {showEvalsModulo && (
+                  <select
+                    value={evalCountFilter}
+                    onChange={(e) => setEvalCountFilter(e.target.value)}
+                    disabled={evalCountOptions.length === 0}
+                    title="Filtra los cursos según su cantidad de módulos con evaluación."
+                    className="h-9 border rounded px-2 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                  >
+                    <option value="">
+                      {evalCountOptions.length === 0 ? 'Sin evaluaciones por módulo' : 'Todas'}
+                    </option>
+                    {evalCountOptions.map((count) => (
+                      <option key={count} value={String(count)}>
+                        {evalOptionLabel(count)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value)}
@@ -634,7 +815,10 @@ const ReporteAvances: React.FC = () => {
             )}
 
             <div className="overflow-auto max-h-[65vh]">
-              <table className={`w-full ${showEvaluacionDiagnostica ? 'min-w-[1980px]' : 'min-w-[1940px]'}`}>
+              <table
+                className="w-full"
+                style={{ minWidth: (showEvaluacionDiagnostica ? 1980 : 1940) + maxEvalCount * 90 }}
+              >
                 <thead className="text-white">
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">Empresa</th>
@@ -652,6 +836,15 @@ const ReporteAvances: React.FC = () => {
                         <span className="inline-block leading-tight">Eval.<br />Diag.</span>
                       </th>
                     )}
+                    {showEvalsModulo && evalColumnIndexes.map((index) => (
+                      <th
+                        key={`eval-head-${index}`}
+                        title={evalColumnNames[index] || `Evaluación ${index + 1} del curso`}
+                        className="px-2 py-3 text-center text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[84px]"
+                      >
+                        <span className="inline-block leading-tight">Eval.<br />{index + 1}</span>
+                      </th>
+                    ))}
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">Nota final</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600">% Avance</th>
                     <th className="px-4 py-3 text-left text-sm font-medium sticky top-0 z-10 bg-blue-600 min-w-[140px]">N° Correlativo</th>
@@ -661,7 +854,10 @@ const ReporteAvances: React.FC = () => {
                 <tbody className="divide-y divide-gray-200">
                   {!loading && !error && displayRows.length === 0 ? (
                     <tr>
-                      <td colSpan={showEvaluacionDiagnostica ? 15 : 14} className="px-4 py-6 text-center text-gray-500">
+                      <td
+                        colSpan={(showEvaluacionDiagnostica ? 15 : 14) + maxEvalCount}
+                        className="px-4 py-6 text-center text-gray-500"
+                      >
                         {exportRows.length === 0 ? 'No hay datos disponibles' : 'Sin resultados para la búsqueda actual'}
                       </td>
                     </tr>
@@ -681,6 +877,14 @@ const ReporteAvances: React.FC = () => {
                         {showEvaluacionDiagnostica && (
                           <td className="px-2 py-3 text-sm text-gray-700 text-center whitespace-nowrap">{row['Evaluación Diagnóstica']}</td>
                         )}
+                        {showEvalsModulo && evalColumnIndexes.map((index) => (
+                          <td
+                            key={`eval-cell-${index}`}
+                            className="px-2 py-3 text-sm text-gray-700 text-center whitespace-nowrap"
+                          >
+                            {row[EVAL_COL_KEY(index)] ?? ''}
+                          </td>
+                        ))}
                         <td className="px-4 py-3 text-sm text-gray-700">{row['Nota final']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['% Avance']}</td>
                         <td className="px-4 py-3 text-sm text-gray-700">{row['N° Correlativo']}</td>

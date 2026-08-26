@@ -1,5 +1,10 @@
 import config from '../config/environment';
 
+export interface EvaluacionModulo {
+  nombre: string;
+  nota: number | null;
+}
+
 export interface ReporteAvanceRow {
   empresa: string;
   nombreCurso: string;
@@ -13,6 +18,9 @@ export interface ReporteAvanceRow {
   ultimoAcceso: string;
   notaFinal: number | null;
   notaDiagnostica: number | null;
+  // Evaluaciones por módulo (ni diagnóstica ni final), en el orden del libro de
+  // notas de Moodle. Puede venir ausente en datos generados antes del cambio.
+  evaluacionesModulo?: EvaluacionModulo[];
   porcentajeAvance: number | null;
   porcentajeAsistencia: number | null;
   fechaReporte: string;
