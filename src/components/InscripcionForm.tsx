@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Trash2, Loader2 } from 'lucide-react';
+import { Trash2, Loader2, Archive, ArchiveRestore, RefreshCw } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import { parseISO } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
-import { type Inscripcion } from '../services/inscripciones';
+import { type Inscripcion, isArchivada, inscripcionesApi } from '../services/inscripciones';
+import { dashboardApi } from '../services/dashboard';
 import { apiService } from '../services/api';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
@@ -14,6 +15,7 @@ interface Props {
   onCancel: () => void;
   onSave: (data: Inscripcion, options?: { goToStudents?: boolean }) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onArchive?: (id: string, archivar: boolean) => Promise<void>;
   empresaByCode?: Record<number, string>;
   empresaByName?: Record<string, number>;
   defaultEmpresaCode?: number;
@@ -45,10 +47,13 @@ const empty: Inscripcion = {
   comentarios: undefined,
 };
 
-const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, empresaByCode, empresaByName, defaultEmpresaCode, allowedEmpresaCodes }) => {
+const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete, onArchive, empresaByCode, empresaByName, defaultEmpresaCode, allowedEmpresaCodes }) => {
   const [form, setForm] = useState<Inscripcion>({ ...empty, ...(initial as any) });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [recalculando, setRecalculando] = useState(false);
+  const [recalculoMsg, setRecalculoMsg] = useState<{ tipo: 'ok' | 'error' | 'info'; texto: string } | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [modalidades, setModalidades] = useState<Modalidad[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
@@ -403,6 +408,50 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     }
   };
 
+  const archivada = isArchivada(form);
+
+  // Archivar no pasa por el submit del formulario: así funciona aunque la
+  // ficha tenga campos obligatorios vacíos (típico de una ficha anulada).
+  const handleArchive = async () => {
+    const id = (form as any)._id as string | undefined;
+    if (!id || !onArchive) return;
+    const archivar = !archivada;
+    const mensaje = archivar
+      ? '¿Archivar esta inscripción?\n\nNo se elimina: deja de aparecer en el Reporte de Avances y en el Dashboard, no se vuelve a actualizar y no se envía a VMICA. Puede desarchivarse cuando quiera.'
+      : '¿Desarchivar esta inscripción?\n\nVolverá a aparecer en los reportes y a actualizarse.';
+    if (!window.confirm(mensaje)) return;
+    setArchiving(true);
+    try {
+      await onArchive(id, archivar);
+    } catch (e: any) {
+      window.alert(e?.message || 'No se pudo archivar la inscripción');
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  // Recalcular notas de esta inscripción aunque esté cerrada (alumnos que
+  // terminan después de la fecha de término). No cambia el status.
+  const handleRecalcular = async () => {
+    const numero = form.numeroInscripcion;
+    if (!numero) return;
+    setRecalculando(true);
+    setRecalculoMsg({ tipo: 'info', texto: 'Recalculando notas...' });
+    try {
+      const { total } = await inscripcionesApi.recalcularNotas(numero, (hechos, tot) => {
+        setRecalculoMsg({ tipo: 'info', texto: `Recalculando notas... ${hechos}/${tot} alumnos` });
+      });
+      dashboardApi.getCache(true).catch((e) => console.warn('No se pudo refrescar el caché del dashboard', e));
+      setRecalculoMsg({ tipo: 'ok', texto: `Notas recalculadas (${total} alumnos). El Reporte de Avances ya muestra los datos nuevos.` });
+    } catch (e: any) {
+      setRecalculoMsg({ tipo: 'error', texto: e?.message || 'No se pudieron recalcular las notas' });
+    } finally {
+      setRecalculando(false);
+    }
+  };
+
+  const busy = saving || deleting || archiving || recalculando;
+
   return (
     <form onSubmit={submit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -634,13 +683,23 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
         <textarea name="comentarios" value={form.comentarios || ''} onChange={change} className="mt-1 w-full border rounded px-3 py-2" rows={3} />
       </div>
 
-      <div className="flex justify-between items-center pt-4 border-t">
-        <div>
+      {recalculoMsg && (
+        <div
+          className={`text-sm px-3 py-2 rounded ${
+            recalculoMsg.tipo === 'ok' ? 'bg-emerald-50 text-emerald-800' : recalculoMsg.tipo === 'error' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-800'
+          }`}
+        >
+          {recalculoMsg.texto}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-3 justify-between items-center pt-4 border-t">
+        <div className="flex flex-wrap items-center gap-3">
           {isEditing && onDelete && (
             <button
               type="button"
               onClick={handleDelete}
-              disabled={deleting || saving}
+              disabled={busy}
               className="flex items-center gap-2 px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {deleting ? (
@@ -651,13 +710,48 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
               {deleting ? 'Eliminando...' : 'Eliminar'}
             </button>
           )}
+          {isEditing && onArchive && (
+            <button
+              type="button"
+              onClick={handleArchive}
+              disabled={busy}
+              title={archivada ? 'Vuelve a incluirla en reportes y actualizaciones' : 'La saca de reportes, dashboard, actualizaciones y VMICA sin eliminarla'}
+              className={`flex items-center gap-2 px-4 py-2 rounded border disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${archivada ? 'border-gray-300 text-gray-700 hover:bg-gray-50' : 'border-amber-500 text-amber-700 hover:bg-amber-50'}`}
+            >
+              {archiving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : archivada ? (
+                <ArchiveRestore className="w-4 h-4" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+              {archiving ? (archivada ? 'Desarchivando...' : 'Archivando...') : (archivada ? 'Desarchivar' : 'Archivar')}
+            </button>
+          )}
+          {isEditing && !archivada && form.numeroInscripcion && (
+            <button
+              type="button"
+              onClick={handleRecalcular}
+              disabled={busy}
+              title="Vuelve a leer las notas de Moodle para todos los alumnos de esta inscripción, aunque esté cerrada"
+              className="flex items-center gap-2 px-4 py-2 rounded border border-blue-500 text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <RefreshCw className={`w-4 h-4 ${recalculando ? 'animate-spin' : ''}`} />
+              {recalculando ? 'Recalculando...' : 'Recalcular notas'}
+            </button>
+          )}
+          {isEditing && archivada && (
+            <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+              Archivada
+            </span>
+          )}
         </div>
 
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onCancel}
-            disabled={saving || deleting}
+            disabled={busy}
             className="px-4 py-2 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Cancelar
@@ -666,7 +760,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
             <button
               type="button"
               onClick={handleCreateAndAddStudents}
-              disabled={saving || deleting}
+              disabled={busy}
               className="flex items-center gap-2 px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -675,7 +769,7 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
           )}
           <button
             type="submit"
-            disabled={saving || deleting}
+            disabled={busy}
             className="flex items-center gap-2 px-4 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}

@@ -29,7 +29,13 @@ export interface Inscripcion {
   status?: 'abierta' | 'cerrada' | string;
   status_vimica?: 'abierta' | 'cerrada' | string;
   comentarios?: string;
+  // Archivada: se conserva pero queda fuera de reportes, dashboard, cron y VMICA.
+  archivada?: boolean;
+  archivadaAt?: string | null;
 }
+
+export const isArchivada = (ins: Partial<Inscripcion> | null | undefined): boolean =>
+  Boolean(ins && ins.archivada === true);
 
 interface ApiResponse<T> { success: boolean; data?: T; error?: { message: string } }
 
@@ -76,6 +82,37 @@ export const inscripcionesApi = {
     if (!res.ok) throw new Error('Error deleting inscripción');
     const json: ApiResponse<void> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
+  },
+  /**
+   * Recalcula las notas de UNA inscripción contra Moodle (grades-numeric),
+   * por lotes para no superar el timeout de nginx. Funciona aunque la
+   * inscripción esté cerrada: es el camino para recoger notas de alumnos que
+   * terminan después de la fecha de término (el cron ya no las refresca).
+   * No toca el status ni envía nada a VMICA.
+   */
+  async recalcularNotas(
+    numeroInscripcion: number | string,
+    onProgress?: (procesados: number, total: number) => void
+  ): Promise<{ total: number }> {
+    const CHUNK_SIZE = 25;
+    let offset = 0;
+    let hasMore = true;
+    let total = 0;
+    while (hasMore) {
+      const url = `${config.apiBaseUrl}/participantes/${encodeURIComponent(String(numeroInscripcion))}/grades-numeric?offset=${offset}&limit=${CHUNK_SIZE}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Error recalculando notas (${res.status})`);
+      }
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message || 'Error recalculando notas');
+      total = Number(json.total) || 0;
+      onProgress?.(Math.min(offset + (Number(json.processed) || 0), total), total);
+      hasMore = Boolean(json.hasMore);
+      offset += CHUNK_SIZE;
+    }
+    return { total };
   },
   async importFromExcel(path: string, sheetName?: string): Promise<{ insertedOrUpdated: number; total: number }> {
     const res = await fetch(`${BASE}/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path, sheetName }) });

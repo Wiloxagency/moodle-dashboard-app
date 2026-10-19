@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import InscripcionesTable from '../components/InscripcionesTable';
 import InscripcionForm from '../components/InscripcionForm';
-import { inscripcionesApi, type Inscripcion } from '../services/inscripciones';
+import { inscripcionesApi, isArchivada, type Inscripcion } from '../services/inscripciones';
 import { participantesApi } from '../services/participantes';
+import { dashboardApi } from '../services/dashboard';
 import { empresasApi, type Empresa } from '../services/empresas';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
@@ -23,6 +24,7 @@ const Inscripciones: React.FC = () => {
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
   const [modalidades, setModalidades] = useState<Modalidad[]>([]);
   const [ejecutivos, setEjecutivos] = useState<Ejecutivo[]>([]);
+  const [showArchivadas, setShowArchivadas] = useState(false);
 
   const getModalidadLabel = (m: Modalidad) => {
     if (m.nombre && m.nombre.trim() !== '') return m.nombre.trim();
@@ -110,6 +112,13 @@ const Inscripciones: React.FC = () => {
     return rows.filter((item) => normalizeEmpresaCode(item.empresa) === target);
   }, [allData, sessionMode, empresaCode, empresaByName, holdingCodeSet]);
 
+  // Por defecto las archivadas no se listan; el interruptor de la tabla las muestra.
+  const archivadasCount = useMemo(() => data.filter(isArchivada).length, [data]);
+  const visibleData = useMemo(
+    () => (showArchivadas ? data : data.filter((ins) => !isArchivada(ins))),
+    [data, showArchivadas]
+  );
+
   const load = async () => {
     const items = await inscripcionesApi.list();
     setAllData(items);
@@ -184,6 +193,16 @@ const Inscripciones: React.FC = () => {
     await load();
   };
 
+  const handleArchive = async (id: string, archivar: boolean) => {
+    await inscripcionesApi.update(id, { archivada: archivar });
+    // El dashboard se sirve desde un caché: se regenera en segundo plano para
+    // que la inscripción salga (o vuelva) de sus indicadores sin esperar al cron.
+    dashboardApi.getCache(true).catch((e) => console.warn('No se pudo refrescar el caché del dashboard', e));
+    setShowForm(false);
+    setEditing(null);
+    await load();
+  };
+
   const openForNew = () => {
     // Calcular el número de inscripción siguiente en base a los datos actuales
     const usedNumbers = new Set<number>();
@@ -227,7 +246,10 @@ const Inscripciones: React.FC = () => {
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="p-6">
           <InscripcionesTable 
-            data={data} 
+            data={visibleData} 
+            showArchivadas={showArchivadas}
+            onToggleArchivadas={setShowArchivadas}
+            archivadasCount={archivadasCount}
             participantCounts={counts} 
             onNew={openForNew} 
             onEdit={openForEdit} 
@@ -250,6 +272,7 @@ const Inscripciones: React.FC = () => {
               onCancel={() => { setShowForm(false); setEditing(null); }} 
               onSave={handleSave}
               onDelete={isEditingMode ? handleDelete : undefined}
+              onArchive={isEditingMode ? handleArchive : undefined}
               empresaByCode={empresaByCode}
             modalidadByCode={modalidadByCode}
             ejecutivoByCode={ejecutivoByCode}

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Users, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { Inscripcion } from '../services/inscripciones';
+import { isArchivada, type Inscripcion } from '../services/inscripciones';
 
 interface Props {
   data: Inscripcion[];
@@ -11,6 +11,9 @@ interface Props {
   empresaByCode?: Record<number, string>;
   modalidadByCode?: Record<number, string>;
   ejecutivoByCode?: Record<number, string>;
+  showArchivadas?: boolean;
+  onToggleArchivadas?: (value: boolean) => void;
+  archivadasCount?: number;
 }
 
 type SortKey =
@@ -30,7 +33,7 @@ type SortKey =
   | 'numAlumnosInscritos'
   | 'valorInicial'
 
-const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit, empresaByCode = {}, modalidadByCode = {}, ejecutivoByCode = {} }) => {
+const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onNew, onEdit, empresaByCode = {}, modalidadByCode = {}, ejecutivoByCode = {}, showArchivadas = false, onToggleArchivadas, archivadasCount = 0 }) => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
   const [perPage, setPerPage] = useState(25);
@@ -197,6 +200,17 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Inscripciones</h2>
           <div className="flex flex-wrap items-center gap-2">
+            {onToggleArchivadas && (
+              <label className="flex items-center gap-2 px-2 text-sm text-gray-700 cursor-pointer select-none" title="Las inscripciones archivadas no aparecen en reportes ni se actualizan">
+                <input
+                  type="checkbox"
+                  checked={showArchivadas}
+                  onChange={(e) => { onToggleArchivadas(e.target.checked); setPage(1); }}
+                  className="rounded border-gray-300"
+                />
+                Mostrar archivadas{archivadasCount ? ` (${archivadasCount})` : ''}
+              </label>
+            )}
             <input value={filter} onChange={(e) => { setFilter(e.target.value); setPage(1); }} placeholder="Filtrar..." className="px-3 py-2 border rounded-md text-sm" />
             <select value={perPage} onChange={e => { setPerPage(parseInt(e.target.value)); setPage(1); }} className="px-2 py-2 border rounded-md text-sm">
               <option value={25}>25</option>
@@ -238,10 +252,16 @@ const InscripcionesTable: React.FC<Props> = ({ data, participantCounts = {}, onN
             {pageRows.map((r, idx) => {
               const rowNumber = start + idx + 1;
               const rowKey = (r as any)._id || `ins-${String(r.numeroInscripcion)}-${rowNumber}`;
+              const archivada = isArchivada(r);
               return (
-                <tr key={rowKey} onClick={() => onEdit && onEdit(r)} className="hover:bg-gray-50 cursor-pointer">
+                <tr key={rowKey} onClick={() => onEdit && onEdit(r)} className={`hover:bg-gray-50 cursor-pointer ${archivada ? 'opacity-60 bg-gray-50' : ''}`}>
                   <td className="px-3 py-3 whitespace-nowrap text-xs text-gray-500 text-center">{rowNumber}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[145px]">{r.numeroInscripcion}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[145px]">
+                    {r.numeroInscripcion}
+                    {archivada && (
+                      <span className="ml-2 inline-flex px-2 py-0.5 text-[10px] font-semibold rounded-full bg-amber-100 text-amber-800 align-middle">Archivada</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.correlativo}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.codigoSence || '-'}</td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 min-w-[110px]">{r.ordenCompra || '-'}</td>

@@ -4,7 +4,7 @@ import Sidebar from '../components/Sidebar';
 import StatisticsCards from '../components/StatisticsCards';
 import CourseTable from '../components/CourseTable';
 import { dashboardApi, type DashboardCache, type DashboardInscripcion } from '../services/dashboard';
-import { inscripcionesApi } from '../services/inscripciones';
+import { inscripcionesApi, isArchivada } from '../services/inscripciones';
 import config from '../config/environment';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { empresasApi, type Empresa } from '../services/empresas';
@@ -458,7 +458,8 @@ const Dashboard: React.FC = () => {
       const scopeLabel = scope === 'todo'
         ? 'todas las empresas'
         : (sessionMode === 'holding' ? 'el holding activo' : 'la empresa activa');
-      const openIns = filtered.filter(debeRefrescarse);
+      // Las archivadas (fichas anuladas) nunca se refrescan ni se cierran.
+      const openIns = filtered.filter((ins) => !isArchivada(ins) && debeRefrescarse(ins));
       const total = openIns.length;
       if (!total) {
         setReportStatus(`No hay inscripciones abiertas para actualizar en ${scopeLabel}.`);
