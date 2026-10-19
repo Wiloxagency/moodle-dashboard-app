@@ -1,4 +1,5 @@
 import config from '../config/environment';
+import { whiteLabelScopeBody, withWhiteLabelScope } from '../whitelabel/whiteLabel';
 
 export interface Modalidad {
   _id?: string;
@@ -17,7 +18,7 @@ const BASE = `${config.apiBaseUrl}/modalidades`;
 
 export const modalidadesApi = {
   async list(): Promise<Modalidad[]> {
-    const res = await fetch(BASE);
+    const res = await fetch(withWhiteLabelScope(BASE));
     if (!res.ok) throw new Error('Error fetching modalidades');
     const json: ApiResponse<Modalidad[]> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
@@ -27,7 +28,7 @@ export const modalidadesApi = {
     const res = await fetch(BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, ...whiteLabelScopeBody() }),
     });
     if (!res.ok) throw new Error('Error creating modalidad');
     const json: ApiResponse<Modalidad> = await res.json();

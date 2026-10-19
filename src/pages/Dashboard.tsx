@@ -7,9 +7,10 @@ import { dashboardApi, type DashboardCache, type DashboardInscripcion } from '..
 import { inscripcionesApi, isArchivada } from '../services/inscripciones';
 import config from '../config/environment';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
-import { empresasApi, type Empresa } from '../services/empresas';
+import { empresasApi, getWhiteLabelEmpresaCodes, type Empresa } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
 import { getSessionMode, getHoldingEmpresaCodes, getUniqueHoldings } from '../utils/holding';
+import { isWhiteLabelSite } from '../whitelabel/whiteLabel';
 
 const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -116,7 +117,8 @@ const Dashboard: React.FC = () => {
   const empresaCode = user?.empresa;
   const sessionMode = getSessionMode(user);
   const isHoldingMode = sessionMode === 'holding';
-  const showVimicaButton = Number(empresaCode) === 1;
+  // VMICA no existe en los White Label.
+  const showVimicaButton = Number(empresaCode) === 1 && !isWhiteLabelSite();
   const isAllEmpresasMode = user?.role === 'superAdmin' && sessionMode === 'multi';
 
   const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
@@ -164,7 +166,7 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     empresasApi
-      .list()
+      .listVisible()
       .then((items) => {
         if (!mounted) return;
         setEmpresas(items);
@@ -197,11 +199,12 @@ const Dashboard: React.FC = () => {
       if (!holdingCodeSet || holdingCodeSet.size === 0) return [];
       return rows.filter((ins) => holdingCodeSet.has(Number(ins.empresa)));
     }
-    if (empresaCode === undefined || empresaCode === null) return rows;
+    // Modo multi empresa: sin las White Label (cada una se consulta desde su dominio).
+    if (empresaCode === undefined || empresaCode === null) return rows.filter((ins) => !getWhiteLabelEmpresaCodes().has(Number(ins.empresa)));
     const target = Number(empresaCode);
     if (!Number.isFinite(target)) return rows;
     return rows.filter((ins) => Number(ins.empresa) === target);
-  }, [cache, sessionMode, empresaCode, holdingCodeSet]);
+  }, [cache, sessionMode, empresaCode, holdingCodeSet, empresas]);
 
   const empresaOptions = useMemo(() => {
     return Object.entries(empresaByCode)

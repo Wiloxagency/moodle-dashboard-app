@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { reportesApi, type ReporteAvanceRow } from '../services/reportes';
-import { empresasApi, type Empresa } from '../services/empresas';
+import { empresasApi, getWhiteLabelEmpresaCodes, type Empresa } from '../services/empresas';
 import { useAuth } from '../context/AuthContext';
 import { getSessionMode, getHoldingEmpresaCodes, getUniqueHoldings } from '../utils/holding';
 
@@ -154,7 +154,7 @@ const ReporteAvances: React.FC = () => {
 
   const loadEmpresas = async () => {
     try {
-      const items = await empresasApi.list();
+      const items = await empresasApi.listVisible();
       setEmpresas(items);
     } catch {
       setEmpresas([]);
@@ -250,10 +250,11 @@ const ReporteAvances: React.FC = () => {
       if (!holdingCodeSet || holdingCodeSet.size === 0) return [];
       return data.filter((row) => holdingCodeSet.has(Number(row.empresa)));
     }
-    if (empresaCode === undefined || empresaCode === null) return data;
+    // Modo multi empresa: sin las White Label (cada una se consulta desde su dominio).
+    if (empresaCode === undefined || empresaCode === null) return data.filter((row) => !getWhiteLabelEmpresaCodes().has(Number(row.empresa)));
     const target = String(empresaCode);
     return data.filter((row) => String(row.empresa ?? '') === target);
-  }, [data, sessionMode, empresaCode, holdingCodeSet]);
+  }, [data, sessionMode, empresaCode, holdingCodeSet, empresas]);
 
   const filteredRows = useMemo(() => {
     let rows = [...empresaFiltered];

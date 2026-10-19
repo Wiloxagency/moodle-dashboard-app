@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useMemo, useState } from 'react';
 import type { AuthUser } from '../types/auth';
 import { loginUser } from '../services/users';
+import { getWhiteLabelEmpresa, isWhiteLabelSite } from '../whitelabel/whiteLabel';
 
 interface AuthContextValue {
   user: AuthUser | null;
@@ -24,10 +25,26 @@ const readUserFromCookie = (): AuthUser | null => {
     if (!parsed || typeof parsed.username !== 'string' || typeof parsed.role !== 'string') {
       return null;
     }
-    return parsed as AuthUser;
+    return validForSite(parsed as AuthUser);
   } catch {
     return null;
   }
+};
+
+/**
+ * Una sesión guardada sólo vale para el sitio en que se abrió: en un White
+ * Label debe estar fijada a su empresa, y el rol Administrador no existe en la
+ * plataforma principal. (Las cookies ya son por dominio; esto cubre sesiones
+ * antiguas y cambios de configuración.)
+ */
+const validForSite = (user: AuthUser): AuthUser | null => {
+  const wlEmpresa = getWhiteLabelEmpresa();
+  if (isWhiteLabelSite()) {
+    if (Number(user.empresa) !== wlEmpresa || user.holding) return null;
+  } else if (user.role === 'admin') {
+    return null;
+  }
+  return user;
 };
 
 const writeUserCookie = (user: AuthUser | null) => {

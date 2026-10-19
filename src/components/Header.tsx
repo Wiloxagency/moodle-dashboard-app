@@ -5,6 +5,8 @@ import logo from '../assets/logo.png';
 import { useAuth } from '../context/AuthContext';
 import { empresasApi } from '../services/empresas';
 import { getSessionMode } from '../utils/holding';
+import { isAdminRole } from '../types/auth';
+import { getWhiteLabel, getWhiteLabelLogoUrl, isWhiteLabelSite } from '../whitelabel/whiteLabel';
 
 const Header: React.FC = () => {
   const location = useLocation();
@@ -20,7 +22,11 @@ const Header: React.FC = () => {
     navigate('/', { replace: true });
   };
 
-  const isSuperAdmin = user?.role === 'superAdmin';
+  const isAdmin = isAdminRole(user?.role);
+  // Empresas: sólo el Superadmin y nunca dentro de un White Label.
+  const showEmpresas = user?.role === 'superAdmin' && !isWhiteLabelSite();
+  const wlLogo = getWhiteLabelLogoUrl();
+  const brandName = getWhiteLabel().nombre || 'EDUTECNO';
   const sessionMode = getSessionMode(user);
   const [activeEmpresaName, setActiveEmpresaName] = useState('');
 
@@ -61,11 +67,11 @@ const Header: React.FC = () => {
     <header className="bg-white border-b border-gray-200 px-4 py-3 sticky top-0 z-40">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-8">
-          {/* EDUTECNO Logo */}
+          {/* Logo: el de la empresa en un White Label, EDUTECNO en la plataforma principal */}
           <img 
-            src={logo} 
-            alt="EDUTECNO" 
-            className="h-[50px] w-auto"
+            src={wlLogo || logo} 
+            alt={brandName} 
+            className="h-[50px] w-auto max-w-[220px] object-contain"
           />
           
           {/* Navigation Links */}
@@ -82,7 +88,7 @@ const Header: React.FC = () => {
               <span>Dashboard</span>
             </Link>
 
-            {isSuperAdmin && (
+            {isAdmin && (
               <>
                 <Link 
                   to="/inscripciones" 
@@ -95,17 +101,19 @@ const Header: React.FC = () => {
                   <Users className="w-4 h-4" />
                   <span>Inscripciones</span>
                 </Link>
-                <Link 
-                  to="/empresas" 
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                    isActive('/empresas') 
-                      ? 'bg-blue-50 text-blue-700 font-medium' 
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Building2 className="w-4 h-4" />
-                  <span>Empresas</span>
-                </Link>
+                {showEmpresas && (
+                  <Link 
+                    to="/empresas" 
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                      isActive('/empresas') 
+                        ? 'bg-blue-50 text-blue-700 font-medium' 
+                        : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    <span>Empresas</span>
+                  </Link>
+                )}
                 <Link 
                   to="/usuarios" 
                   className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${

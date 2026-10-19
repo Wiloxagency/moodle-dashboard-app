@@ -1,4 +1,5 @@
 import config from '../config/environment';
+import { whiteLabelScopeBody, withWhiteLabelScope } from '../whitelabel/whiteLabel';
 
 export interface Sence {
   _id?: string;
@@ -35,7 +36,7 @@ const BASE = `${config.apiBaseUrl}/sence`;
 
 export const senceApi = {
   async list(): Promise<Sence[]> {
-    const res = await fetch(BASE);
+    const res = await fetch(withWhiteLabelScope(BASE));
     if (!res.ok) throw new Error('Error fetching Sence records');
     const json: ApiResponse<Sence[]> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
@@ -49,7 +50,7 @@ export const senceApi = {
     const res = await fetch(BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, ...whiteLabelScopeBody() }),
     });
     const json: ApiResponse<Sence> = await res.json();
     if (!res.ok || !json.success) {
@@ -86,7 +87,7 @@ export const senceApi = {
     const res = await fetch(`${BASE}/import/bulk`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cursos }),
+      body: JSON.stringify({ cursos, ...whiteLabelScopeBody() }),
     });
     const json: ApiResponse<{ inserted: number; updated: number; total: number }> = await res.json();
     if (!res.ok || !json.success) {

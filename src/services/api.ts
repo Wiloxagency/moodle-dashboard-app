@@ -106,8 +106,10 @@ class MoodleApiService {
     return response.data!;
   }
 
-  async getCoursesByField(field: string, value: string): Promise<CoursesResponse> {
-    const response = await this.makeRequest<CoursesResponse>(`/cursos/field/${field}/${value}`);
+  /** `empresa`: consulta el Moodle de esa empresa (las White Label tienen el suyo). */
+  async getCoursesByField(field: string, value: string, empresa?: number): Promise<CoursesResponse> {
+    const qs = empresa !== undefined && Number.isFinite(Number(empresa)) ? `?empresa=${empresa}` : '';
+    const response = await this.makeRequest<CoursesResponse>(`/cursos/field/${field}/${value}${qs}`);
     return response.data!;
   }
 

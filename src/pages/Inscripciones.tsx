@@ -5,11 +5,12 @@ import InscripcionForm from '../components/InscripcionForm';
 import { inscripcionesApi, isArchivada, type Inscripcion } from '../services/inscripciones';
 import { participantesApi } from '../services/participantes';
 import { dashboardApi } from '../services/dashboard';
-import { empresasApi, type Empresa } from '../services/empresas';
+import { empresasApi, getWhiteLabelEmpresaCodes, type Empresa } from '../services/empresas';
 import { modalidadesApi, type Modalidad } from '../services/modalidades';
 import { ejecutivosApi, type Ejecutivo } from '../services/ejecutivos';
 import { useAuth } from '../context/AuthContext';
 import { getSessionMode, getHoldingEmpresaCodes } from '../utils/holding';
+import { getWhiteLabelEmpresa } from '../whitelabel/whiteLabel';
 
 const Inscripciones: React.FC = () => {
   const { user } = useAuth();
@@ -106,7 +107,14 @@ const Inscripciones: React.FC = () => {
         return code !== undefined && holdingCodeSet.has(code);
       });
     }
-    if (empresaCode === undefined || empresaCode === null) return rows;
+    // Modo multi empresa: sin las White Label (cada una se gestiona desde su dominio).
+    if (empresaCode === undefined || empresaCode === null) {
+      const wl = getWhiteLabelEmpresaCodes();
+      return rows.filter((item) => {
+        const code = normalizeEmpresaCode(item.empresa);
+        return code === undefined || !wl.has(code);
+      });
+    }
     const target = Number(empresaCode);
     if (!Number.isFinite(target)) return rows;
     return rows.filter((item) => normalizeEmpresaCode(item.empresa) === target);
@@ -129,7 +137,7 @@ const Inscripciones: React.FC = () => {
   const loadCatalogs = async () => {
     try {
       const [empresaItems, modalidadItems, ejecutivoItems] = await Promise.all([
-        empresasApi.list(),
+        empresasApi.listVisible(),
         modalidadesApi.list(),
         ejecutivosApi.list(),
       ]);
@@ -278,7 +286,11 @@ const Inscripciones: React.FC = () => {
             ejecutivoByCode={ejecutivoByCode}
               empresaByName={empresaByName}
               defaultEmpresaCode={defaultEmpresaCode}
-              allowedEmpresaCodes={sessionMode === 'holding' ? holdingEmpresaCodes : undefined}
+              allowedEmpresaCodes={
+                getWhiteLabelEmpresa() !== undefined
+                  ? [getWhiteLabelEmpresa() as number]
+                  : sessionMode === 'holding' ? holdingEmpresaCodes : undefined
+              }
             />
           </div>
         </div>

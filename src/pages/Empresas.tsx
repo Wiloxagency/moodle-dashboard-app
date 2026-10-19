@@ -38,9 +38,16 @@ const EmpresasPage: React.FC = () => {
   };
 
   const handleSave = async (payload: EmpresaFormData) => {
+    // Campos de sólo lectura fuera; token y logo sólo viajan si se cambiaron.
+    const { _id, code, wlMoodleTokenSet, wlLogoVersion, wlMoodleVersion, wlMoodleToken, wlLogo, ...base } = payload;
+    const rest = {
+      ...base,
+      wlMoodleVersion: wlMoodleVersion === '' || wlMoodleVersion === undefined ? undefined : wlMoodleVersion,
+      ...(wlMoodleToken && wlMoodleToken.trim() ? { wlMoodleToken: wlMoodleToken.trim() } : {}),
+      ...(wlLogo ? { wlLogo } : {}),
+    };
     if (editingCode == null) {
       // crear
-      const { _id, code, ...rest } = payload;
       const created = await empresasApi.create(rest);
       setData(prev => [...prev, created]);
     } else {
@@ -50,7 +57,6 @@ const EmpresasPage: React.FC = () => {
         setEditingCode(null);
         return;
       }
-      const { _id, code, ...rest } = payload;
       const updated = await empresasApi.update(current._id, rest);
       setData(prev => prev.map(item => (item._id === current._id ? updated : item)));
     }

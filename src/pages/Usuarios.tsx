@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { Role } from '../types/auth';
+import { ROLE_LABELS, type Role } from '../types/auth';
+import { getWhiteLabelEmpresa } from '../whitelabel/whiteLabel';
 import {
   listUsers,
   createUser,
@@ -18,15 +19,30 @@ interface UserFormState {
   empresa: number | '';
 }
 
-const emptyForm: UserFormState = {
+// En un White Label el formulario queda fijado a su empresa. (Se lee al
+// renderizar: el White Label se resuelve después de cargar los módulos.)
+const emptyForm = (): UserFormState => ({
   username: '',
   role: 'user',
   password: '',
-  empresa: '',
-};
+  empresa: getWhiteLabelEmpresa() ?? '',
+});
+
+/**
+ * Roles admitidos según la empresa:
+ *  - White Label: Administrador o User (no admiten superusuarios).
+ *  - Resto:       Superadmin o User (el Administrador sólo existe en White Label).
+ * El backend aplica la misma regla.
+ */
+const rolesFor = (empresaIsWhiteLabel: boolean): Role[] =>
+  empresaIsWhiteLabel ? ['admin', 'user'] : ['superAdmin', 'user'];
+
+const isWhiteLabelEmpresa = (empresas: Empresa[], code: number | ''): boolean =>
+  getWhiteLabelEmpresa() !== undefined || (code !== '' && !!empresas.find(e => Number(e.code) === Number(code))?.whiteLabel);
 
 const UsuariosPage: React.FC = () => {
   const [users, setUsers] = useState<StoredUser[]>([]);
+  const wlEmpresa = getWhiteLabelEmpresa();
   const [form, setForm] = useState<UserFormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [passwordUserId, setPasswordUserId] = useState<string | null>(null);
@@ -45,7 +61,7 @@ const UsuariosPage: React.FC = () => {
 
   const load = async () => {
     try {
-      const data = await listUsers();
+      const data = await listUsers(wlEmpresa);
       setUsers(data);
     } catch (e) {
       console.error(e);
@@ -56,7 +72,7 @@ const UsuariosPage: React.FC = () => {
   const loadEmpresas = async () => {
     try {
       const data = await empresasApi.list();
-      setEmpresas(data);
+      setEmpresas(wlEmpresa !== undefined ? data.filter(e => Number(e.code) === wlEmpresa) : data);
     } catch (e) {
       console.error(e);
     }
@@ -76,13 +92,18 @@ const UsuariosPage: React.FC = () => {
     setForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const isWhiteLabelCode = (code: number | '') => isWhiteLabelEmpresa(empresas, code);
+
+  const allowedRoles = useMemo(() => rolesFor(isWhiteLabelEmpresa(empresas, form.empresa)), [form.empresa, empresas]);
+
   const handleEmpresaChange = (value: string) => {
-    if (value === '') {
-      setForm(prev => ({ ...prev, empresa: '' }));
-      return;
-    }
     const num = Number(value);
-    setForm(prev => ({ ...prev, empresa: Number.isFinite(num) ? num : '' }));
+    const empresa: number | '' = value === '' || !Number.isFinite(num) ? '' : num;
+    setForm(prev => {
+      // Si el rol elegido no existe en la nueva empresa, se vuelve a User.
+      const role = rolesFor(isWhiteLabelCode(empresa)).includes(prev.role) ? prev.role : 'user';
+      return { ...prev, empresa, role };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -118,7 +139,7 @@ const UsuariosPage: React.FC = () => {
         });
         setSuccess('Usuario actualizado correctamente');
       }
-      setForm(emptyForm);
+      setForm(emptyForm());
       setEditingId(null);
       load();
     } catch (e) {
@@ -179,7 +200,7 @@ const UsuariosPage: React.FC = () => {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm(emptyForm());
   };
 
   return (
@@ -189,9 +210,20 @@ const UsuariosPage: React.FC = () => {
           <div>
             <h1 className="text-2xl font-semibold text-gray-800 mb-2">Centro de Control de Acceso</h1>
             <p className="text-gray-600 text-sm">
-              Desde esta pestaña el rol <strong>Superadmin</strong> administra todas las cuentas del sistema.
-              Solo existen dos roles posibles: <strong>Superadmin</strong> y <strong>User</strong>. Las contraseñas
-              definidas aquí son las <strong>únicas válidas</strong> para acceder al sistema.
+              {wlEmpresa !== undefined ? (
+                <>
+                  Cuentas de esta empresa. Roles posibles: <strong>Administrador</strong> (gestiona inscripciones,
+                  usuarios y catálogos) y <strong>User</strong> (consulta los reportes). Las contraseñas definidas
+                  aquí son las <strong>únicas válidas</strong> para acceder al sistema.
+                </>
+              ) : (
+                <>
+                  Desde esta pestaña el rol <strong>Superadmin</strong> administra todas las cuentas del sistema.
+                  Roles: <strong>Superadmin</strong> y <strong>User</strong>; en empresas White Label,
+                  <strong> Administrador</strong> y <strong>User</strong> (no admiten superusuarios). Las contraseñas
+                  definidas aquí son las <strong>únicas válidas</strong> para acceder al sistema.
+                </>
+              )}
             </p>
           </div>
 
@@ -235,8 +267,9 @@ const UsuariosPage: React.FC = () => {
                   onChange={e => handleChange('role', e.target.value as Role)}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
-                  <option value="superAdmin">Superadmin</option>
-                  <option value="user">User</option>
+                  {allowedRoles.map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                  ))}
                 </select>
               </div>
 
@@ -248,12 +281,13 @@ const UsuariosPage: React.FC = () => {
                   id="empresa"
                   value={form.empresa === '' ? '' : String(form.empresa)}
                   onChange={e => handleEmpresaChange(e.target.value)}
+                  disabled={wlEmpresa !== undefined}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
                   <option value="">Seleccione empresa...</option>
                   {empresas.map((e) => (
                     <option key={e._id || e.code} value={e.code}>
-                      {e.code} - {e.nombre}
+                      {e.code} - {e.nombre}{e.whiteLabel && wlEmpresa === undefined ? ' (White Label)' : ''}
                     </option>
                   ))}
                 </select>
@@ -316,7 +350,7 @@ const UsuariosPage: React.FC = () => {
                       </td>
                       <td className="px-3 py-2">
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                          {user.role === 'superAdmin' ? 'Superadmin' : 'User'}
+                          {ROLE_LABELS[user.role] || user.role}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right space-x-2">

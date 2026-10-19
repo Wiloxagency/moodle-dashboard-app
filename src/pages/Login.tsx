@@ -5,6 +5,7 @@ import { empresasApi, type Empresa } from '../services/empresas';
 import { loginUser, type StoredUser } from '../services/users';
 import { getUniqueHoldings, HOLDING_OPTION_PREFIX } from '../utils/holding';
 import logo from '../assets/logo.png';
+import { getWhiteLabel, getWhiteLabelLogoUrl, isWhiteLabelSite } from '../whitelabel/whiteLabel';
 
 interface LocationState {
   from?: Location;
@@ -91,13 +92,15 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      if (storedUser.username.toLowerCase() === 'superadmin') {
+      // En un White Label no hay selector: el backend ya fijó la empresa del sitio.
+      if (!isWhiteLabelSite() && storedUser.username.toLowerCase() === 'superadmin') {
         setPendingUser(storedUser);
         setSelectedEmpresa(ALL_EMPRESAS_VALUE);
         setEmpresas([]);
         setLoadingEmpresas(true);
         try {
-          const items = await empresasApi.list();
+          // Las White Label se operan desde su propio dominio.
+          const items = await empresasApi.listVisible();
           const sorted = [...items].sort((a, b) =>
             String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' })
           );
@@ -133,7 +136,11 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
         <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="EDUTECNO" className="h-16 w-auto mb-2" />
+          <img
+            src={getWhiteLabelLogoUrl() || logo}
+            alt={getWhiteLabel().nombre || 'EDUTECNO'}
+            className="h-16 w-auto max-w-[260px] object-contain mb-2"
+          />
           <h1 className="text-xl font-semibold text-gray-800">Ingreso al Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Ingrese sus credenciales para continuar</p>
         </div>

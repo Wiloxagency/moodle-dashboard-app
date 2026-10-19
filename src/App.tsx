@@ -41,7 +41,7 @@ function App() {
         <Route
           path="/vimica"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute hideOnWhiteLabel>
               <Vimica />
             </ProtectedRoute>
           }
@@ -49,7 +49,7 @@ function App() {
         <Route
           path="/vimica/json"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute hideOnWhiteLabel>
               <VimicaJson />
             </ProtectedRoute>
           }
@@ -57,7 +57,7 @@ function App() {
         <Route
           path="/reporte-avances"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <ReporteAvances />
             </ProtectedRoute>
           }
@@ -65,7 +65,7 @@ function App() {
         <Route
           path="/inscripciones"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <Inscripciones />
             </ProtectedRoute>
           }
@@ -73,7 +73,7 @@ function App() {
         <Route
           path="/modalidad"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <ModalidadPage />
             </ProtectedRoute>
           }
@@ -81,7 +81,7 @@ function App() {
         <Route
           path="/ejecutivos"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <EjecutivosPage />
             </ProtectedRoute>
           }
@@ -89,17 +89,17 @@ function App() {
         <Route
           path="/participantes/:numeroInscripcion"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <Participantes />
             </ProtectedRoute>
           }
         />
 
-        {/* Rutas protegidas por rol superAdmin (RBAC estricto) */}
+        {/* Empresas: sólo Superadmin y nunca en un White Label. Usuarios y Sence: también el Administrador del White Label */}
         <Route
           path="/empresas"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="superAdmin" hideOnWhiteLabel>
               <EmpresasPage />
             </ProtectedRoute>
           }
@@ -107,7 +107,7 @@ function App() {
         <Route
           path="/usuarios"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <UsuariosPage />
             </ProtectedRoute>
           }
@@ -115,7 +115,7 @@ function App() {
         <Route
           path="/sence"
           element={
-            <ProtectedRoute requiredRole="superAdmin">
+            <ProtectedRoute requiredRole="admin">
               <SencePage />
             </ProtectedRoute>
           }

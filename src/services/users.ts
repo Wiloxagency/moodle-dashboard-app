@@ -1,6 +1,7 @@
 import type { Role } from '../types/auth';
 import config from '../config/environment';
 import type { ApiResponse } from '../types/api';
+import { getCurrentHost } from '../whitelabel/whiteLabel';
 
 export interface StoredUser {
   id: string;
@@ -51,8 +52,10 @@ async function request<T>(path: string, options: RequestInit): Promise<T> {
   return payload.data as T;
 }
 
-export async function listUsers(): Promise<StoredUser[]> {
-  const users = await request<ApiUser[]>('/users', { method: 'GET' });
+/** `empresa`: sólo los usuarios de esa empresa (Administrador de un White Label). */
+export async function listUsers(empresa?: number): Promise<StoredUser[]> {
+  const qs = empresa !== undefined ? `?empresa=${empresa}` : '';
+  const users = await request<ApiUser[]>(`/users${qs}`, { method: 'GET' });
   return users.map(mapUser);
 }
 
@@ -60,7 +63,9 @@ export async function loginUser(username: string, password: string): Promise<Sto
   try {
     const user = await request<ApiUser>('/users/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password }),
+      // El host decide el White Label: el backend sólo deja entrar a sus usuarios
+      // (y fija la empresa del Superadmin).
+      body: JSON.stringify({ username, password, host: getCurrentHost() }),
     });
     return mapUser(user);
   } catch (e) {

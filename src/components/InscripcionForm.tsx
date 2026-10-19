@@ -314,7 +314,9 @@ const InscripcionForm: React.FC<Props> = ({ initial, onCancel, onSave, onDelete,
     }
     setVerifying(true);
     try {
-      const res: any = await apiService.getCoursesByField('id', id);
+      // Cada empresa White Label tiene su propio Moodle: se consulta el de la empresa elegida.
+      const empresaForMoodle = normalizeEmpresaCode(form.empresa) ?? defaultEmpresaCode;
+      const res: any = await apiService.getCoursesByField('id', id, empresaForMoodle);
       const courses = (res as any)?.courses || (res as any)?.data?.courses || [];
       const course = Array.isArray(courses) && courses.length ? courses[0] : null;
       const name = course?.fullname || course?.displayname || course?.shortname;

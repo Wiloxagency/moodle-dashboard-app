@@ -1,4 +1,5 @@
 import config from '../config/environment';
+import { whiteLabelScopeBody, withWhiteLabelScope } from '../whitelabel/whiteLabel';
 
 export interface Ejecutivo {
   _id?: string;
@@ -19,7 +20,7 @@ const BASE = `${config.apiBaseUrl}/ejecutivos`;
 
 export const ejecutivosApi = {
   async list(): Promise<Ejecutivo[]> {
-    const res = await fetch(BASE);
+    const res = await fetch(withWhiteLabelScope(BASE));
     if (!res.ok) throw new Error('Error fetching ejecutivos');
     const json: ApiResponse<Ejecutivo[]> = await res.json();
     if (!json.success) throw new Error(json.error?.message || 'API error');
@@ -29,7 +30,7 @@ export const ejecutivosApi = {
     const res = await fetch(BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, ...whiteLabelScopeBody() }),
     });
     if (!res.ok) throw new Error('Error creating ejecutivo');
     const json: ApiResponse<Ejecutivo> = await res.json();

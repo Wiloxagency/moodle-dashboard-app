@@ -119,6 +119,7 @@ const EmpresaTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teléfonos</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email Empresa</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">White Label</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -138,12 +139,19 @@ const EmpresaTable: React.FC<Props> = ({ data, onNew, onEdit }) => {
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{[r.telefono_1, r.telefono_2].filter(Boolean).join(' / ') || '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.email_empresa || '-'}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{r.status}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      {r.whiteLabel ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700" title={r.wlMoodleUrl}>
+                          {r.wlDominio}
+                        </span>
+                      ) : '-'}
+                    </td>
                   </tr>
                 );
               })}
               {pageRows.length === 0 && (
                 <tr>
-                  <td className="px-4 py-6 text-sm text-gray-500 text-center" colSpan={9}>
+                  <td className="px-4 py-6 text-sm text-gray-500 text-center" colSpan={10}>
                     Sin empresas
                   </td>
                 </tr>
